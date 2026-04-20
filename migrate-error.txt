@@ -1,0 +1,26 @@
+﻿
+   INFO  Running migrations.  
+
+  2026_01_31_164649_adjust_form_for_spu_structure  2.44ms FAIL
+
+   Illuminate\Database\QueryException 
+
+  SQLSTATE[HY000]: General error: 1 duplicate column name: no_spu (Connection: sqlite, Database: D:/00 TA Tugas AKhir/website/ver1.0/database/database.sqlite, SQL: alter table "form_pengujian" add column "no_spu" varchar)
+
+  at vendor\laravel\framework\src\Illuminate\Database\Connection.php:831
+    827Γûò             $exceptionType = $this->isUniqueConstraintError($e)
+    828Γûò                 ? UniqueConstraintViolationException::class
+    829Γûò                 : QueryException::class;
+    830Γûò 
+  Γ₧£ 831Γûò             throw new $exceptionType(
+    832Γûò                 $this->getNameWithReadWriteType(),
+    833Γûò                 $query,
+    834Γûò                 $this->prepareBindings($bindings),
+    835Γûò                 $e,
+
+  1   vendor\laravel\framework\src\Illuminate\Database\Connection.php:571
+      PDOException::("SQLSTATE[HY000]: General error: 1 duplicate column name: no_spu")
+
+  2   vendor\laravel\framework\src\Illuminate\Database\Connection.php:571
+      PDO::prepare()
+
