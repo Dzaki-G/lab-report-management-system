@@ -82,6 +82,10 @@ Route::middleware(['auth', 'role:' . Role::ADMIN])->group(function () {
     Route::get('/form-pengujian/{form}', [FormPengujianController::class, 'show'])
         ->name('form.show');
 
+    // Delete form (Admin only) - removes form + all Google Docs
+    Route::delete('/form-pengujian/{form}', [FormPengujianController::class, 'destroy'])
+        ->name('form.destroy');
+
     // Admin update SP3 SPPP & IK
     Route::post('/sp3/{sp3}/update-info', [FormPengujianController::class, 'updateSp3Info'])
         ->name('admin.update-sp3-info');

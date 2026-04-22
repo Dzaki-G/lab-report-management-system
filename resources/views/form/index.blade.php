@@ -242,11 +242,20 @@
                                             </span>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap flex items-center gap-2">
-                                            <a href="{{ route('form.show', $form) }}" 
+                                            <a href="{{ route('form-list.show', $form) }}" 
                                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-sm transition-colors">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                                 Detail
                                             </a>
+                                            <form method="POST" action="{{ route('form.destroy', $form) }}" 
+                                                  class="inline"
+                                                  onsubmit="return confirm('⚠️ Hapus Form {{ $form->form_number }}?\n\nSemua data dan dokumen Google Drive (SPU, SP3, LHP) akan dihapus permanen.\n\nYakin?')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-sm transition-colors">
+                                                    🗑️ Hapus
+                                                </button>
+                                            </form>
                                             @if($form->spu_signed_doc_id)
                                                 <a href="https://docs.google.com/document/d/{{ $form->spu_signed_doc_id }}/edit" target="_blank" 
                                                    class="text-emerald-500 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 p-1.5 rounded-lg transition-colors" title="SPU Signed">

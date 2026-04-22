@@ -461,5 +461,73 @@ class FormPengujianController extends Controller
 
         return back()->with('success', 'Info SP3 (SPPP & IK) berhasil disimpan.');
     }
+
+    /**
+     * Delete a form and all its related Google Docs from Drive.
+     * Only accessible by Admin.
+     */
+    public function destroy(FormPengujian $form)
+    {
+        $googleDocsService = new \App\Services\GoogleDocsService();
+        $deletedDocs = [];
+        $failedDocs = [];
+
+        // Delete SPU documents from Google Drive
+        foreach ([
+            'spu_unsigned_doc_id' => 'SPU Unsigned',
+            'spu_signed_doc_id'   => 'SPU Signed',
+        ] as $field => $label) {
+            if ($form->$field) {
+                try {
+                    $googleDocsService->deleteFile($form->$field);
+                    $deletedDocs[] = $label;
+                } catch (\Exception $e) {
+                    \Log::warning("Failed to delete {$label} ({$form->$field}): " . $e->getMessage());
+                    $failedDocs[] = $label;
+                }
+            }
+        }
+
+        // Delete all SP3 documents from Google Drive
+        foreach ($form->sp3Documents as $sp3) {
+            if ($sp3->google_doc_id) {
+                try {
+                    $googleDocsService->deleteFile($sp3->google_doc_id);
+                    $deletedDocs[] = "SP3 {$sp3->sp3_number}";
+                } catch (\Exception $e) {
+                    \Log::warning("Failed to delete SP3 {$sp3->sp3_number}: " . $e->getMessage());
+                    $failedDocs[] = "SP3 {$sp3->sp3_number}";
+                }
+            }
+        }
+
+        // Delete the LHP from Drive if it exists
+        if ($form->lhp_google_file_id) {
+            try {
+                $googleDocsService->deleteFile($form->lhp_google_file_id);
+                $deletedDocs[] = 'LHP';
+            } catch (\Exception $e) {
+                \Log::warning("Failed to delete LHP: " . $e->getMessage());
+                $failedDocs[] = 'LHP';
+            }
+        }
+
+        $formNumber = $form->form_number;
+
+        // Delete from database (cascades to samples, parameters, verifications, sp3 docs, etc.)
+        $form->delete();
+
+        \Log::info("Form {$formNumber} deleted by admin " . auth()->user()->user_id . ". Deleted docs: " . implode(', ', $deletedDocs));
+
+        $message = "Form {$formNumber} berhasil dihapus.";
+        if (!empty($deletedDocs)) {
+            $message .= ' Dokumen terhapus: ' . implode(', ', $deletedDocs) . '.';
+        }
+        if (!empty($failedDocs)) {
+            $message .= ' Gagal hapus dari Drive (sudah dihapus manual?): ' . implode(', ', $failedDocs) . '.';
+        }
+
+        return redirect()->route('form.index')->with('success', $message);
+    }
 }
 
