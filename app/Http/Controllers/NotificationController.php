@@ -40,14 +40,19 @@ class NotificationController extends Controller
     }
 
     /**
-     * Mark single notification as read
+     * Mark single notification as read and redirect to related form
      */
     public function markAsRead($notif)
     {
-        $notification = Notification::findOrFail($notif);
+        // Only find notification that belongs to the current user (prevents 403)
+        $notification = Notification::where('id', $notif)
+            ->where('user_id', auth()->user()->user_id)
+            ->first();
 
-        if ($notification->user_id !== auth()->user()->user_id) {
-            abort(403);
+        // If not found or doesn't belong to this user, redirect gracefully
+        if (!$notification) {
+            return redirect()->route('notifications.index')
+                ->with('error', 'Notifikasi tidak ditemukan.');
         }
 
         $notification->update(['is_read' => true]);
@@ -55,10 +60,33 @@ class NotificationController extends Controller
         // Redirect to related form if exists
         // Use form-list.show which is accessible by ALL roles (avoids 403)
         if (isset($notification->data['form_id'])) {
-            return redirect()->route('form-list.show', $notification->data['form_id']);
+            $formId = $notification->data['form_id'];
+            // Check if the form still exists before redirecting
+            if (\App\Models\FormPengujian::find($formId)) {
+                return redirect()->route('form-list.show', $formId);
+            }
         }
 
         return redirect()->route('notifications.index');
+    }
+
+    /**
+     * Delete a notification
+     */
+    public function destroy($notif)
+    {
+        $notification = Notification::where('id', $notif)
+            ->where('user_id', auth()->user()->user_id)
+            ->first();
+
+        if (!$notification) {
+            return redirect()->route('notifications.index')
+                ->with('error', 'Notifikasi tidak ditemukan.');
+        }
+
+        $notification->delete();
+
+        return back()->with('success', 'Notifikasi berhasil dihapus.');
     }
 
     /**

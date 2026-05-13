@@ -18,28 +18,49 @@
     <div class="py-6">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             @if(session('success'))
-                <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
-                    {{ session('success') }}
+                <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-xl flex items-center gap-2">
+                    ✅ {{ session('success') }}
+                </div>
+            @endif
+            @if(session('error'))
+                <div class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-xl flex items-center gap-2">
+                    ⚠️ {{ session('error') }}
                 </div>
             @endif
 
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="divide-y divide-gray-200">
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-gray-200">
+                <div class="divide-y divide-gray-100">
                     @forelse($notifications as $notif)
-                        <div class="p-4 {{ !$notif->is_read ? 'bg-blue-50' : '' }} hover:bg-gray-50">
-                            <div class="flex items-start space-x-3">
-                                <span class="text-2xl">{{ $notif->icon }}</span>
-                                <div class="flex-1 min-w-0">
-                                    <div class="flex items-center justify-between">
-                                        <p class="text-sm font-semibold text-gray-900">{{ $notif->title }}</p>
-                                        <span class="text-xs text-gray-400">{{ $notif->created_at->diffForHumans() }}</span>
-                                    </div>
-                                    <p class="text-sm text-gray-600 mt-1">{{ $notif->message }}</p>
-                                    
+                        {{-- Unread = white/blue bg, bright text. Read = gray bg, muted text --}}
+                        <div class="p-4 flex items-start gap-3 transition-colors
+                            {{ !$notif->is_read ? 'bg-blue-50 hover:bg-blue-100' : 'bg-gray-50 hover:bg-gray-100' }}">
+                            
+                            {{-- Icon --}}
+                            <span class="text-2xl flex-shrink-0 {{ $notif->is_read ? 'opacity-40 grayscale' : '' }}">
+                                {{ $notif->icon }}
+                            </span>
+
+                            {{-- Content --}}
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2">
+                                    <p class="text-sm font-semibold {{ $notif->is_read ? 'text-gray-400' : 'text-gray-900' }}">
+                                        {{ $notif->title }}
+                                        @if($notif->is_read)
+                                            <span class="ml-1 text-xs font-normal text-gray-400">(Sudah dibaca)</span>
+                                        @endif
+                                    </p>
+                                    <span class="text-xs text-gray-400 flex-shrink-0">{{ $notif->created_at->diffForHumans() }}</span>
+                                </div>
+                                <p class="text-sm mt-0.5 {{ $notif->is_read ? 'text-gray-400' : 'text-gray-600' }}">
+                                    {{ $notif->message }}
+                                </p>
+                                
+                                {{-- Action buttons --}}
+                                <div class="flex items-center gap-3 mt-2">
                                     @if(!$notif->is_read)
-                                        <form method="POST" action="{{ route('notifications.read', $notif) }}" class="mt-2">
+                                        <form method="POST" action="{{ route('notifications.read', $notif) }}">
                                             @csrf
-                                            <button type="submit" class="text-xs text-blue-600 hover:underline">
+                                            <button type="submit" class="text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium">
                                                 @if(isset($notif->data['form_id']))
                                                     Lihat Form →
                                                 @else
@@ -47,9 +68,31 @@
                                                 @endif
                                             </button>
                                         </form>
+                                    @else
+                                        @if(isset($notif->data['form_id']))
+                                            <a href="{{ route('form-list.show', $notif->data['form_id']) }}" 
+                                               class="text-xs text-gray-400 hover:text-indigo-600 hover:underline font-medium">
+                                                Lihat Form →
+                                            </a>
+                                        @endif
                                     @endif
+
+                                    {{-- Delete button (always visible) --}}
+                                    <form method="POST" action="{{ route('notifications.destroy', $notif) }}"
+                                          onsubmit="return confirm('Hapus notifikasi ini?')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="text-xs text-red-400 hover:text-red-600 hover:underline font-medium">
+                                            🗑 Hapus
+                                        </button>
+                                    </form>
                                 </div>
                             </div>
+
+                            {{-- Unread dot indicator --}}
+                            @if(!$notif->is_read)
+                                <div class="w-2.5 h-2.5 rounded-full bg-blue-500 flex-shrink-0 mt-1.5"></div>
+                            @endif
                         </div>
                     @empty
                         <div class="p-8 text-center text-gray-500">
