@@ -53,19 +53,9 @@ class NotificationController extends Controller
         $notification->update(['is_read' => true]);
 
         // Redirect to related form if exists
+        // Use form-list.show which is accessible by ALL roles (avoids 403)
         if (isset($notification->data['form_id'])) {
-            $userRole = auth()->user()->role_id;
-            
-            // Determine route based on role
-            if ($userRole == \App\Enums\Role::ADMIN) {
-                return redirect()->route('form.show', $notification->data['form_id']);
-            } elseif ($userRole == \App\Enums\Role::KEPALA_UPA) {
-                return redirect()->route('kepala-upa.show', $notification->data['form_id']);
-            } elseif ($userRole == \App\Enums\Role::KEPALA_DIVISI) {
-                return redirect()->route('kepala-divisi.show', $notification->data['form_id']);
-            } elseif ($userRole == \App\Enums\Role::ANALIS) {
-                return redirect()->route('analis.form.show', $notification->data['form_id']);
-            }
+            return redirect()->route('form-list.show', $notification->data['form_id']);
         }
 
         return redirect()->route('notifications.index');
