@@ -514,6 +514,10 @@ class FormPengujianController extends Controller
 
         $formNumber = $form->form_number;
 
+        // Delete related notifications before deleting the form
+        // Since notifications store form_id in JSON, it doesn't auto-cascade
+        \App\Models\Notification::whereJsonContains('data->form_id', $form->id)->delete();
+
         // Delete from database (cascades to samples, parameters, verifications, sp3 docs, etc.)
         $form->delete();
 
