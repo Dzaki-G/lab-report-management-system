@@ -67,17 +67,29 @@
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6 border-t border-gray-200/60 pt-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-6 border-t border-gray-200/60 pt-6">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Nama Customer</label>
                                     <input type="text" name="customer_name" value="{{ old('customer_name') }}"
-                                           placeholder="Nama perusahaan atau perorangan"
+                                           placeholder="Nama lengkap"
                                            class="w-full border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">No. HP Customer</label>
                                     <input type="text" name="customer_phone" value="{{ old('customer_phone') }}"
                                            placeholder="08xxxxxxxxxx"
+                                           class="w-full border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Asal Instansi</label>
+                                    <input type="text" name="customer_institution" value="{{ old('customer_institution') }}"
+                                           placeholder="Nama perusahaan/kampus"
+                                           class="w-full border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Jabatan</label>
+                                    <input type="text" name="customer_position" value="{{ old('customer_position') }}"
+                                           placeholder="Mahasiswa/Peneliti/Staff"
                                            class="w-full border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all">
                                 </div>
                             </div>

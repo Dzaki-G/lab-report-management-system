@@ -125,6 +125,8 @@ class FormPengujianController extends Controller
             'received_date'  => 'required|date',
             'customer_name'  => 'nullable|string|max:255',
             'customer_phone' => 'nullable|string|max:20',
+            'customer_institution' => 'nullable|string|max:255',
+            'customer_position' => 'nullable|string|max:255',
             'samples'        => 'required|array|min:1',
             'samples.*.sample_code' => 'required|string',
             'samples.*.sample_name' => 'required|string',
@@ -151,6 +153,8 @@ class FormPengujianController extends Controller
                 'deadline_date'    => $receivedDate->copy()->addWeekdays(12),
                 'customer_name'    => $validated['customer_name'] ?? null,
                 'customer_phone'   => $validated['customer_phone'] ?? null,
+                'customer_institution' => $validated['customer_institution'] ?? null,
+                'customer_position' => $validated['customer_position'] ?? null,
                 'admin_id'         => $request->user()->user_id,
                 'status'           => 'verifikasi_upa_1',
             ]);

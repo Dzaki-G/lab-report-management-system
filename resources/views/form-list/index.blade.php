@@ -215,7 +215,11 @@
                                             <span class="font-semibold text-gray-900">{{ $form->form_number }}</span>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-gray-700 font-medium">
-                                            {{ $form->customer_name }}
+                                            @if(auth()->user()->role_id == \App\Enums\Role::ANALIS)
+                                                <span class="text-gray-400 italic">*** Dirahasiakan ***</span>
+                                            @else
+                                                {{ $form->customer_name }}
+                                            @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {{ \Carbon\Carbon::parse($form->received_date)->format('d M Y') }}

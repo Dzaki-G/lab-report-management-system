@@ -24,7 +24,33 @@
                         </div>
                         <div>
                             <p class="text-sm text-gray-500">Customer</p>
-                            <p class="font-medium text-gray-900">{{ $form->customer_name }}</p>
+                            <p class="font-medium text-gray-900">
+                                @if(auth()->user()->role_id == \App\Enums\Role::ANALIS)
+                                    <span class="text-gray-400 italic">*** Dirahasiakan ***</span>
+                                @else
+                                    {{ $form->customer_name }}
+                                @endif
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Asal Instansi</p>
+                            <p class="font-medium text-gray-900">
+                                @if(auth()->user()->role_id == \App\Enums\Role::ANALIS)
+                                    <span class="text-gray-400 italic">*** Dirahasiakan ***</span>
+                                @else
+                                    {{ $form->customer_institution ?? '-' }}
+                                @endif
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Jabatan</p>
+                            <p class="font-medium text-gray-900">
+                                @if(auth()->user()->role_id == \App\Enums\Role::ANALIS)
+                                    <span class="text-gray-400 italic">*** Dirahasiakan ***</span>
+                                @else
+                                    {{ $form->customer_position ?? '-' }}
+                                @endif
+                            </p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-500">Tanggal Masuk</p>

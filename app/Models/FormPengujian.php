@@ -17,6 +17,8 @@ class FormPengujian extends Model
         'status',
         'customer_name',
         'customer_phone',
+        'customer_institution',
+        'customer_position',
         'admin_id',
         'assigned_analyst_id',
         // SPU document tracking
