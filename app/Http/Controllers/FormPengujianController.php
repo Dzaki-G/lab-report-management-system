@@ -113,10 +113,8 @@ class FormPengujianController extends Controller
             $formNumberWithPrefix = 'SPU-' . $formNumberWithPrefix;
         }
         
-        // Check if form_number already exists (with prefix)
-        if (FormPengujian::where('form_number', $formNumberWithPrefix)->exists()) {
-            return back()->withErrors(['form_number' => 'ID Form sudah digunakan.'])->withInput();
-        }
+        // Allow duplicate form_number (it will reset every month)
+        // We removed the uniqueness check here.
         
         $validated = $request->validate([
             'form_number'    => 'required|string',

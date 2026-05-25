@@ -19,8 +19,13 @@
                     </h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div>
-                            <p class="text-sm text-gray-500">No. Form</p>
-                            <p class="font-medium text-gray-900">{{ $form->form_number }}</p>
+                            <p class="text-sm text-gray-500">No. Form / SPU</p>
+                            <p class="font-medium text-gray-900">
+                                {{ $form->form_number }}
+                                @if($form->no_spu)
+                                    <span class="text-indigo-600 ml-2">({{ $form->no_spu }})</span>
+                                @endif
+                            </p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-500">Customer</p>

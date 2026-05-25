@@ -212,7 +212,10 @@
                                     @endphp
                                     <tr class="hover:bg-indigo-50/30 transition-colors duration-150 group">
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <span class="font-semibold text-gray-900">{{ $form->form_number }}</span>
+                                            <div class="font-semibold text-gray-900">{{ $form->form_number }}</div>
+                                            @if($form->no_spu)
+                                                <div class="text-xs text-indigo-600 mt-1 font-medium">{{ $form->no_spu }}</div>
+                                            @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-gray-700 font-medium">
                                             @if(auth()->user()->role_id == \App\Enums\Role::ANALIS)
