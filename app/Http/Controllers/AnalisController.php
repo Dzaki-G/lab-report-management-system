@@ -82,7 +82,7 @@ class AnalisController extends Controller
     public function inputResult(SampleParameter $sampleParameter)
     {
         // Verify this parameter is assigned to current analis
-        if ($sampleParameter->assigned_analyst_id !== auth()->user()->user_id) {
+        if ($sampleParameter->assigned_analyst_id != auth()->user()->user_id) {
             abort(403, 'Anda tidak memiliki akses ke parameter ini');
         }
 
@@ -100,7 +100,7 @@ class AnalisController extends Controller
     public function startWork(SampleParameter $sampleParameter)
     {
         // Verify this parameter is assigned to current analis
-        if ($sampleParameter->assigned_analyst_id !== auth()->user()->user_id) {
+        if ($sampleParameter->assigned_analyst_id != auth()->user()->user_id) {
             abort(403);
         }
 
@@ -116,7 +116,7 @@ class AnalisController extends Controller
     public function storeResult(Request $request, SampleParameter $sampleParameter)
     {
         // Verify this parameter is assigned to current analis
-        if ($sampleParameter->assigned_analyst_id !== auth()->user()->user_id) {
+        if ($sampleParameter->assigned_analyst_id != auth()->user()->user_id) {
             abort(403);
         }
         
@@ -175,7 +175,7 @@ class AnalisController extends Controller
     public function submitLcpLink(Request $request, \App\Models\Sp3Document $sp3)
     {
         // Verify this SP3 is assigned to current analis
-        if ($sp3->assigned_analyst_id !== auth()->user()->user_id) {
+        if ($sp3->assigned_analyst_id != auth()->user()->user_id) {
             abort(403, 'Anda tidak memiliki akses ke SP3 ini');
         }
 
@@ -245,7 +245,7 @@ class AnalisController extends Controller
     public function showSp3(\App\Models\Sp3Document $sp3)
     {
         // Verify this SP3 is assigned to current analis
-        if ($sp3->assigned_analyst_id !== auth()->user()->user_id) {
+        if ($sp3->assigned_analyst_id != auth()->user()->user_id) {
             abort(403, 'Anda tidak memiliki akses ke SP3 ini');
         }
         
