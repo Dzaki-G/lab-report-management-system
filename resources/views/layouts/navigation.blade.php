@@ -71,10 +71,6 @@
                 <svg class="w-5 h-5 mr-3 {{ request()->routeIs('kepala-upa.*') ? 'text-blue-200' : 'text-[#4299e1] group-hover:text-[#2b6cb0]' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
                 {{ __('Persetujuan Tugas') }}
             </a>
-            <a href="{{ route('form-list.index') }}" class="{{ $linkClass }} {{ request()->routeIs('form-list.*') ? $activeClass : $inactiveClass }}">
-                <svg class="w-5 h-5 mr-3 {{ request()->routeIs('form-list.*') ? 'text-blue-200' : 'text-[#4299e1] group-hover:text-[#2b6cb0]' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                {{ __('Arsip Semua Form') }}
-            </a>
         @endif
 
         {{-- Kepala Divisi Menu --}}
@@ -83,6 +79,15 @@
             <a href="{{ route('kepala-divisi.dashboard') }}" class="{{ $linkClass }} {{ request()->routeIs('kepala-divisi.*') ? $activeClass : $inactiveClass }}">
                 <svg class="w-5 h-5 mr-3 {{ request()->routeIs('kepala-divisi.*') ? 'text-blue-200' : 'text-[#4299e1] group-hover:text-[#2b6cb0]' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 {{ __('Verifikasi Divisi') }}
+            </a>
+        @endif
+
+        {{-- Analitik Menu (Accessible by Admin, Kepala UPA, Kepala Divisi) --}}
+        @if(in_array($userRole, [\App\Enums\Role::ADMIN, \App\Enums\Role::KEPALA_UPA, \App\Enums\Role::KEPALA_DIVISI]))
+            <div class="pt-5 pb-2 px-4 text-[11px] font-bold text-[#4a5568] uppercase tracking-widest">Analitik</div>
+            <a href="{{ route('statistics.index') }}" class="{{ $linkClass }} {{ request()->routeIs('statistics.*') ? $activeClass : $inactiveClass }}">
+                <svg class="w-5 h-5 mr-3 {{ request()->routeIs('statistics.*') ? 'text-blue-200' : 'text-[#4299e1] group-hover:text-[#2b6cb0]' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                {{ __('Statistik Pengujian') }}
             </a>
         @endif
 

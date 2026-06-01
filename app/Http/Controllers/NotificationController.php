@@ -58,12 +58,28 @@ class NotificationController extends Controller
         $notification->update(['is_read' => true]);
 
         // Redirect to related form if exists
-        // Use form-list.show which is accessible by ALL roles (avoids 403)
+        // Use form-list.show for Admin/Leadership, and analis.form.show/dashboard for Analysts
         if (isset($notification->data['form_id'])) {
             $formId = $notification->data['form_id'];
-            // Check if the form still exists before redirecting
-            if (\App\Models\FormPengujian::find($formId)) {
-                return redirect()->route('form-list.show', $formId);
+            $form = \App\Models\FormPengujian::find($formId);
+            if ($form) {
+                if (auth()->user()->role_id == \App\Enums\Role::ANALIS) {
+                    $hasAccess = $form->samples->flatMap->sampleParameters
+                        ->where('assigned_analyst_id', auth()->user()->user_id)->isNotEmpty();
+                    if ($hasAccess) {
+                        return redirect()->route('analis.form.show', $formId);
+                    } else {
+                        // Check if they have an SP3 document
+                        $sp3 = \App\Models\Sp3Document::where('form_id', $formId)
+                            ->where('assigned_analyst_id', auth()->user()->user_id)->first();
+                        if ($sp3) {
+                            return redirect()->route('analis.sp3.show', $sp3->id);
+                        }
+                        return redirect()->route('analis.dashboard');
+                    }
+                } else {
+                    return redirect()->route('form-list.show', $formId);
+                }
             }
         }
 

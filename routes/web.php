@@ -36,12 +36,14 @@ Route::middleware('auth')->group(function () {
     Route::delete('/notifications/{notif}', [\App\Http\Controllers\NotificationController::class, 'destroy'])->name('notifications.destroy');
 });
 
-// Form List accessible by all roles except Super Admin
-Route::middleware(['auth'])->group(function () {
+// Form List & Statistik accessible by Admin, Kepala UPA, and Kepala Divisi
+Route::middleware(['auth', 'role:' . Role::ADMIN . ',' . Role::KEPALA_UPA . ',' . Role::KEPALA_DIVISI])->group(function () {
     Route::get('/semua-form', [\App\Http\Controllers\FormListController::class, 'index'])
         ->name('form-list.index');
     Route::get('/semua-form/{form}', [\App\Http\Controllers\FormListController::class, 'show'])
         ->name('form-list.show');
+    Route::get('/statistik', [\App\Http\Controllers\StatisticController::class, 'index'])
+        ->name('statistics.index');
 });
 
 Route::middleware(['auth', 'role:1'])->get('/test', function () {
