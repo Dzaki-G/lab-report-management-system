@@ -176,20 +176,18 @@
                                 <form action="{{ route('kepala-divisi.update-sp3', $sp3) }}" method="POST" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                                     @csrf
                                     
-                                    {{-- No SPPP (read-only, filled by Admin) --}}
+                                    {{-- No SPPP (editable by Kepala Divisi) --}}
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">No. SPPP</label>
-                                        <div class="w-full text-sm border border-gray-200 rounded-md px-3 py-2 bg-gray-50 text-gray-700">
-                                            {{ $sp3->no_sppp ?: 'Belum diisi oleh Admin' }}
-                                        </div>
+                                        <input type="text" name="no_sppp" value="{{ old('no_sppp', $sp3->no_sppp) }}"
+                                               class="w-full text-sm border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
                                     </div>
 
-                                    {{-- IK (read-only, filled by Admin) --}}
+                                    {{-- IK (editable by Kepala Divisi) --}}
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Instruksi Kerja</label>
-                                        <div class="w-full text-sm border border-gray-200 rounded-md px-3 py-2 bg-gray-50 text-gray-700">
-                                            {{ $sp3->ik ?: 'Belum diisi oleh Admin' }}
-                                        </div>
+                                        <input type="text" name="ik" value="{{ old('ik', $sp3->ik) }}"
+                                               class="w-full text-sm border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
                                     </div>
 
                                     {{-- Analis --}}
@@ -230,7 +228,19 @@
                         @empty
                             <div class="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
                                 <p class="text-gray-500 italic">Belum ada dokumen SP3 yang digenerate.</p>
-                                <p class="text-xs text-gray-400">Pastikan SPU sudah diapprove oleh Kepala UPA.</p>
+                                @if($form->spu_signed_divisi_at)
+                                    <div class="mt-4">
+                                        <form action="{{ route('kepala-divisi.regenerate-sp3', $form) }}" method="POST">
+                                            @csrf
+                                            <button type="submit" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium shadow-sm transition">
+                                                🔄 Generate Ulang SP3
+                                            </button>
+                                        </form>
+                                        <p class="text-xs text-gray-400 mt-2">Gunakan tombol ini jika pembuatan SP3 gagal karena kendala jaringan/timeout.</p>
+                                    </div>
+                                @else
+                                    <p class="text-xs text-gray-400">Pastikan SPU sudah diapprove oleh Kepala UPA.</p>
+                                @endif
                             </div>
                         @endforelse
                     </div>

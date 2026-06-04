@@ -49,6 +49,9 @@ class KepalaUpaController extends Controller
      */
     public function approve(FormPengujian $form)
     {
+        // Increase PHP execution time limit for Google Docs API calls
+        set_time_limit(300);
+
         $currentStatus = $form->status;
         
         // Determine next status based on current

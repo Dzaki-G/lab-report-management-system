@@ -144,7 +144,7 @@
             
             <div class="flex justify-between items-start mb-5 pl-2">
                 <h4 class="font-bold text-lg text-gray-800 flex items-center gap-2">
-                    <span class="bg-indigo-100 text-indigo-700 w-8 h-8 rounded-full flex items-center justify-center text-sm">__NUMBER__</span> 
+                    <span class="sample-number bg-indigo-100 text-indigo-700 w-8 h-8 rounded-full flex items-center justify-center text-sm">__NUMBER__</span> 
                     Detail Sampel
                 </h4>
                 <button type="button" class="remove-sample text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors flex items-center gap-1">
@@ -210,6 +210,7 @@
             const container = document.getElementById('samplesContainer');
             const template = document.getElementById('sampleTemplate');
             const addButton = document.getElementById('addSample');
+            const form = document.getElementById('formPengujian');
             let sampleIndex = 0;
 
             function addSample() {
@@ -226,21 +227,41 @@
             function updateSampleNumbers() {
                 const samples = container.querySelectorAll('.sample-item');
                 samples.forEach((sample, index) => {
-                    sample.querySelector('.sample-number').textContent = index + 1;
+                    const numberEl = sample.querySelector('.sample-number');
+                    if (numberEl) {
+                        numberEl.textContent = index + 1;
+                    }
                 });
             }
 
             addButton.addEventListener('click', addSample);
 
             container.addEventListener('click', function(e) {
-                if (e.target.classList.contains('remove-sample')) {
+                const removeBtn = e.target.closest('.remove-sample');
+                if (removeBtn) {
                     const samples = container.querySelectorAll('.sample-item');
                     if (samples.length > 1) {
-                        e.target.closest('.sample-item').remove();
+                        removeBtn.closest('.sample-item').remove();
                         updateSampleNumbers();
                     } else {
                         alert('Minimal harus ada 1 sampel');
                     }
+                }
+            });
+
+            // Prevent double form submission due to slow Google Docs API generation
+            form.addEventListener('submit', function() {
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
+                    submitBtn.innerHTML = `
+                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Menyimpan...
+                    `;
                 }
             });
 

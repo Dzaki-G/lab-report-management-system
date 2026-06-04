@@ -36,14 +36,21 @@ Route::middleware('auth')->group(function () {
     Route::delete('/notifications/{notif}', [\App\Http\Controllers\NotificationController::class, 'destroy'])->name('notifications.destroy');
 });
 
-// Form List & Statistik accessible by Admin, Kepala UPA, and Kepala Divisi
+// Form List, Detail Form, & Statistik accessible by Admin, Kepala UPA, and Kepala Divisi
 Route::middleware(['auth', 'role:' . Role::ADMIN . ',' . Role::KEPALA_UPA . ',' . Role::KEPALA_DIVISI])->group(function () {
+    // Semua Form (arsip lintas role)
     Route::get('/semua-form', [\App\Http\Controllers\FormListController::class, 'index'])
         ->name('form-list.index');
     Route::get('/semua-form/{form}', [\App\Http\Controllers\FormListController::class, 'show'])
         ->name('form-list.show');
     Route::get('/statistik', [\App\Http\Controllers\StatisticController::class, 'index'])
         ->name('statistics.index');
+
+    // Form Pengujian — read-only list & detail (shared)
+    Route::get('/form-pengujian', [FormPengujianController::class, 'index'])
+        ->name('form.index');
+    Route::get('/form-pengujian/{form}', [FormPengujianController::class, 'show'])
+        ->name('form.show');
 });
 
 Route::middleware(['auth', 'role:1'])->get('/test', function () {
@@ -65,9 +72,6 @@ Route::middleware(['auth', 'role:' . Role::SUPER_ADMIN])->group(function () {
 });
 
 Route::middleware(['auth', 'role:' . Role::ADMIN])->group(function () {
-    Route::get('/form-pengujian', [FormPengujianController::class, 'index'])
-        ->name('form.index');
-    
     // Units CRUD
     Route::resource('units', UnitController::class);
 
@@ -82,8 +86,6 @@ Route::middleware(['auth', 'role:' . Role::ADMIN])->group(function () {
     
     Route::post('/form-pengujian/{form}/samples', [SampleController::class, 'store'])
         ->name('samples.store');
-    Route::get('/form-pengujian/{form}', [FormPengujianController::class, 'show'])
-        ->name('form.show');
 
     // Delete form (Admin only) - removes form + all Google Docs
     Route::delete('/form-pengujian/{form}', [FormPengujianController::class, 'destroy'])
@@ -207,6 +209,8 @@ Route::middleware(['auth', 'role:' . Role::KEPALA_DIVISI])->group(function () {
         ->name('kepala-divisi.sign-spu');
     Route::post('/kepala-divisi/sp3/{sp3}/update', [\App\Http\Controllers\KepalaDivisiController::class, 'updateSp3'])
         ->name('kepala-divisi.update-sp3');
+    Route::post('/kepala-divisi/form/{form}/regenerate-sp3', [\App\Http\Controllers\KepalaDivisiController::class, 'regenerateSp3'])
+        ->name('kepala-divisi.regenerate-sp3');
     
     // LCP Approval Route (after analis submit LCP)
     Route::post('/kepala-divisi/form/{form}/approve-lcp', [\App\Http\Controllers\KepalaDivisiController::class, 'approveLcp'])

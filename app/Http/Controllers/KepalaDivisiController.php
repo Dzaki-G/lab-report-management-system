@@ -139,6 +139,10 @@ class KepalaDivisiController extends Controller
      */
     public function signSpu(FormPengujian $form)
     {
+        // Google Docs API calls can be slow, especially when generating multiple SP3 documents.
+        // Increase PHP execution time limit to 5 minutes for this specific operation.
+        set_time_limit(300);
+
         try {
             // In 3-template strategy, we generate a NEW document for the 2nd signature
             // The previous 'spu_signed_doc_id' was the one signed by UPA only.
@@ -175,6 +179,37 @@ class KepalaDivisiController extends Controller
         }
     }
     
+    /**
+     * Regenerate SP3 documents for a form that already has SPU signed.
+     * Used when SP3 generation failed due to timeout during signSpu.
+     */
+    public function regenerateSp3(FormPengujian $form)
+    {
+        set_time_limit(300);
+
+        // Guard: SPU must already be signed by Kepala Divisi
+        if (!$form->spu_signed_divisi_at) {
+            return back()->with('error', 'SPU belum ditandatangani oleh Kepala Divisi. Silakan tanda tangani SPU terlebih dahulu.');
+        }
+
+        // Guard: only regenerate if no SP3 exists yet to avoid duplicates
+        $existingSp3Count = $form->sp3Documents()->count();
+        if ($existingSp3Count > 0) {
+            return back()->with('error', "SP3 sudah ada ({$existingSp3Count} dokumen). Tidak perlu generate ulang.");
+        }
+
+        try {
+            $googleDocsService = new \App\Services\GoogleDocsService();
+            $this->generateSp3Documents($form, $googleDocsService);
+
+            $sp3Count = $form->sp3Documents()->count();
+            return back()->with('success', "Berhasil generate {$sp3Count} dokumen SP3. Silakan assign analis ke masing-masing SP3.");
+        } catch (\Exception $e) {
+            \Log::error("Failed to regenerate SP3 for form {$form->id}: " . $e->getMessage());
+            return back()->with('error', 'Gagal generate SP3: ' . $e->getMessage());
+        }
+    }
+
     /**
      * Generate SP3 documents grouped by parameter
      */
@@ -249,6 +284,8 @@ class KepalaDivisiController extends Controller
     {
         $request->validate([
             'assigned_analyst_id' => 'required|exists:users,user_id',
+            'no_sppp' => 'nullable|string|max:255',
+            'ik' => 'nullable|string|max:255',
         ]);
 
         try {
@@ -257,6 +294,8 @@ class KepalaDivisiController extends Controller
             // 1. Update Database (Sp3Document)
             $sp3->update([
                 'assigned_analyst_id' => $request->assigned_analyst_id,
+                'no_sppp' => $request->no_sppp,
+                'ik' => $request->ik,
                 'status' => 'assigned',
             ]);
 
@@ -292,6 +331,8 @@ class KepalaDivisiController extends Controller
      */
     public function approve(FormPengujian $form)
     {
+        // Increase PHP execution time limit for Google Docs API calls
+        set_time_limit(300);
         // Check 1: SPU must be signed by Kepala Divisi
         if (!$form->spu_signed_divisi_at) {
             return back()->with('error', 'SPU belum ditandatangani. Silakan tanda tangani SPU terlebih dahulu.');
