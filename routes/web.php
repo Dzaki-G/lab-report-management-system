@@ -49,6 +49,10 @@ Route::middleware(['auth', 'role:' . Role::ADMIN . ',' . Role::KEPALA_UPA . ',' 
     // Form Pengujian — read-only list & detail (shared)
     Route::get('/form-pengujian', [FormPengujianController::class, 'index'])
         ->name('form.index');
+    // IMPORTANT: /create must be registered BEFORE /{form} wildcard
+    Route::get('/form-pengujian/create', [FormPengujianController::class, 'create'])
+        ->name('form.create')
+        ->middleware('role:' . Role::ADMIN); // Only Admin can create
     Route::get('/form-pengujian/{form}', [FormPengujianController::class, 'show'])
         ->name('form.show');
 });
@@ -75,8 +79,7 @@ Route::middleware(['auth', 'role:' . Role::ADMIN])->group(function () {
     // Units CRUD
     Route::resource('units', UnitController::class);
 
-    Route::get('/form-pengujian/create', [FormPengujianController::class, 'create'])
-        ->name('form.create');
+
 
     Route::post('/form-pengujian', [FormPengujianController::class, 'store'])
         ->name('form.store');
