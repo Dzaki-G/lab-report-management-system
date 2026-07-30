@@ -2,6 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+> Digitizing a lab's paper-based test-report approval process — from submission to signed, delivered document.
+
 A Laravel 12 application for managing laboratory/testing forms and document workflows used internally by administrators, analysts, and division/unit heads. It provides a full submission → verification → testing → signing → delivery workflow, automated document generation with Google Docs/Drive, role-based dashboards, and notifications.
 
 ## Key features
