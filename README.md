@@ -13,7 +13,7 @@ A Laravel 12 application for managing laboratory/testing forms and document work
 
 | Generated SPU Document | Completed Form |
 |---|---|
-| ![Generated Document](docs/dokumen_spu.png) | ![Form Selesai](docs/form_selesai.png) |
+| ![Generated Document](docs/dokumen_SPU.png) | ![Form Selesai](docs/form_selesai.png) |
 
 **Activity Log**
 ![Log Arsip](docs/log_arsip.png)
