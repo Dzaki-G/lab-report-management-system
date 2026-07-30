@@ -1,59 +1,137 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Tugas Akhir Website
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## About Laravel
+A Laravel 12 application for managing laboratory/testing forms and document workflows used internally by administrators, analysts, and division/unit heads. It provides a full submission → verification → testing → signing → delivery workflow, automated document generation with Google Docs/Drive, role-based dashboards, and notifications.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Key features
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- Role-based access control (SUPER_ADMIN, ADMIN, KEPALA_UPA, KEPALA_DIVISI, ANALIS) with middleware-protected routes.
+- Full form lifecycle for "Form Pengujian": submission, UPA/Divisi verification, assignment to analysts, input of results, LHP input, signatures, and final delivery.
+- Automated document generation and management using Google Drive & Google Docs (SPU, SP3, LHP): template copying, placeholder replacement, dynamic table population, and deletion of Drive files when forms are removed.
+- Notifications to users/roles when forms require action (submission, approvals, signatures).
+- Powerful filtering, search, and pagination for large form lists (status, stage, quick filters like deadlines/overdue, date ranges).
+- Admin utilities: user management, unit/parameter CRUD, and a Super Admin endpoint to clear test data (with confirmation).
+- Test scaffold (PHPUnit) and development scripts for quick setup.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Tech stack
 
-## Learning Laravel
+- PHP 8.2+ (platform configured for 8.3)
+- Laravel 12
+- Blade templating for views
+- Google API Client (google/apiclient) for Drive & Docs automation
+- phpoffice/phpword (installed for docx handling)
+- Tailwind CSS + Vite for frontend assets
+- PHPUnit for testing
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+## Repository layout (important files)
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+```
+app/
+  Http/Controllers/           # Controllers (FormPengujianController, DashboardController, etc.)
+  Services/                   # GoogleDocsService.php - Google Drive & Docs logic
+  Enums/Role.php              # Role constants used across middleware
+routes/
+  web.php                     # Application routes and role-based routing
+resources/views/              # Blade views (UI templates)
+database/                     # Migrations and seeders
+doc/                          # Project-specific documentation
+composer.json                 # PHP dependencies & helpful scripts (setup, dev, test)
+package.json                  # Node dependencies for assets
+README.md                     # This file
+```
 
-## Laravel Sponsors
+## Quickstart — run locally
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+1. Clone the repository
 
-### Premium Partners
+   git clone https://github.com/Dzaki-G/tugas-akhir-website.git
+   cd tugas-akhir-website
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+2. Install PHP dependencies
+
+   composer install
+
+3. Copy and configure environment
+
+   cp .env.example .env
+   php artisan key:generate
+
+   Edit `.env` and set database credentials and other required env variables (see *Environment/Google* below).
+
+4. Migrate and seed database
+
+   php artisan migrate --seed
+
+5. Install frontend dependencies and build assets
+
+   npm install
+   npm run build
+
+6. Run the application
+
+   php artisan serve
+
+   Visit http://127.0.0.1:8000
+
+Notes: composer.json contains useful scripts:
+- composer run-script setup  — runs install, .env copy, key generate, migrate, npm install, and build
+- composer run-script dev    — runs concurrent dev processes (artisan serve, queue worker, pail, vite dev)
+- composer run-script test   — runs phpunit tests
+
+## Environment / Google API setup
+
+This project integrates with Google Drive & Google Docs. You can authenticate either using a Service Account (recommended for server-to-server) or OAuth credentials (with a refresh token).
+
+Required environment variables (used by app/Services/GoogleDocsService.php and config/services.php):
+
+- GOOGLE_SERVICE_ACCOUNT_PATH — path to service account JSON (if using service account)
+- GOOGLE_TEMPLATES_FOLDER_ID — Google Drive folder ID that contains templates (SPU, SP3 templates)
+- GOOGLE_SPU_FOLDER_ID — target folder ID where generated SPU documents are saved
+- GOOGLE_SP3_FOLDER_ID — target folder ID where generated SP3 documents are saved
+
+If using OAuth client credentials, configure in config/services.php or via env:
+
+- SERVICES_GOOGLE_CLIENT_ID (or set in config/services.php)
+- SERVICES_GOOGLE_CLIENT_SECRET
+- SERVICES_GOOGLE_REFRESH_TOKEN
+
+Steps to enable API access:
+1. Go to Google Cloud Console and enable Google Drive API and Google Docs API for your project.
+2. If using a Service Account: create a service account, download the JSON, store it in the server, set GOOGLE_SERVICE_ACCOUNT_PATH to the path, and grant the service account access to the templates and target folders (share the folder with the service account email).
+3. If using OAuth: create OAuth credentials, obtain a refresh token for an account that has access to the Drive folders, and set the client id/secret/refresh token in config/services.php or env.
+4. Set the template and target folder IDs in the env file.
+
+## Key configuration & files to review
+
+- app/Services/GoogleDocsService.php — document generation, placeholder replacement, table population logic.
+- app/Http/Controllers/FormPengujianController.php — main form lifecycle and document generation orchestration.
+- routes/web.php — routing and middleware (role-based access) definitions.
+- app/Enums/Role.php — numeric role ids used across controllers/middleware.
+
+## Running tests
+
+- Run the test suite with:
+
+  php artisan test
+
+or directly via phpunit:
+
+  ./vendor/bin/phpunit
+
+## Security & production notes
+
+- Rotate credentials used for Google or other integrations if they are leaked. Never commit service account JSON or client secrets to the repository.
+- When making the repository public, ensure no secrets remain in git history. Use tools like `git-secrets`, `trufflehog`, or `BFG Repo-Cleaner` to scrub sensitive data.
+- For production, prefer Service Accounts and restrict Drive folder permissions. Consider using queues for long-running document generation tasks.
 
 ## Contributing
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Contributions are welcome. Open an issue or a PR for bug fixes and features. When contributing:
+- Follow PSR-12 / Laravel coding conventions.
+- Run tests locally before submitting a PR.
+- Add relevant documentation to `doc/` when adding features.
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+This project is released under the MIT License.
