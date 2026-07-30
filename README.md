@@ -5,6 +5,18 @@
 > Digitizing a lab's paper-based test-report approval process — from submission to signed, delivered document.
 
 A Laravel 12 application for managing laboratory/testing forms and document workflows used internally by administrators, analysts, and division/unit heads. It provides a full submission → verification → testing → signing → delivery workflow, automated document generation with Google Docs/Drive, role-based dashboards, and notifications.
+## Screenshots
+
+| Admin Dashboard | Form Submission |
+|---|---|
+| ![Dashboard](docs/dashboard_admin.png) | ![Form](docs/form.png) |
+
+| Generated SPU Document | Completed Form |
+|---|---|
+| ![Generated Document](docs/dokumen_spu.png) | ![Form Selesai](docs/form_selesai.png) |
+
+**Activity Log**
+![Log Arsip](docs/log_arsip.png)
 
 ## Key features
 
