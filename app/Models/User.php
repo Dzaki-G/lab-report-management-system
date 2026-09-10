@@ -24,6 +24,7 @@ class User extends Authenticatable
         'password',
         'full_name',
         'is_active',
+        'signature_drive_file_id',
     ];
 
     protected $hidden = [
@@ -35,6 +36,8 @@ class User extends Authenticatable
     {
         return [
             'password' => 'hashed',
+            'role_id'  => 'integer',
+            'is_active' => 'boolean',
         ];
     }
     public function role()

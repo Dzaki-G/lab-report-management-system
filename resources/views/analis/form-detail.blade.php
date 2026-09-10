@@ -102,15 +102,8 @@
                                                 @endif
                                             </div>
                                             <div>
-                                                @if($sp->status === 'pending')
-                                                    <form method="POST" action="{{ route('analis.start', $sp) }}" class="inline">
-                                                        @csrf
-                                                        <button type="submit" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm font-medium">
-                                                            Mulai Kerjakan
-                                                        </button>
-                                                    </form>
-                                                @elseif($sp->status === 'in_progress')
-                                                    <a href="{{ route('analis.input', $sp) }}" 
+                                                @if($sp->status === 'pending' || $sp->status === 'in_progress')
+                                                    <a href="{{ route('analis.input', $sp) }}"
                                                        class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium">
                                                         Input Hasil
                                                     </a>
@@ -121,6 +114,48 @@
                                         </div>
                                     @endforeach
                                 </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+
+            {{-- LCP Links per SP3 --}}
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mt-6">
+                <div class="p-6">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-1">Lembar Catatan Pengujian (LCP)</h3>
+                    <p class="text-sm text-gray-500 mb-4">Opsional — dapat ditambahkan kapan saja, tidak memblokir proses.</p>
+                    <div class="space-y-4">
+                        @foreach($form->sp3Documents as $sp3)
+                            <div class="border border-gray-200 rounded-lg p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div>
+                                        <p class="font-medium text-gray-800">{{ $sp3->sp3_number }}</p>
+                                        <p class="text-sm text-gray-500">Parameter: {{ $sp3->parameter->name ?? '-' }}</p>
+                                    </div>
+                                    @if($sp3->lcp_google_file_url)
+                                        <a href="{{ $sp3->lcp_google_file_url }}" target="_blank"
+                                           class="text-blue-600 hover:underline text-sm">📎 Lihat LCP</a>
+                                    @endif
+                                </div>
+                                <form method="POST" action="{{ route('analis.sp3.submit-lcp', $sp3) }}"
+                                      class="flex gap-2 items-end">
+                                    @csrf
+                                    <div class="flex-1">
+                                        <label class="block text-xs font-medium text-gray-600 mb-1">
+                                            {{ $sp3->lcp_google_file_url ? 'Perbarui URL LCP' : 'Tambah URL LCP (Google Drive)' }}
+                                        </label>
+                                        <input type="url" name="lcp_url"
+                                               value="{{ $sp3->lcp_google_file_url ?? '' }}"
+                                               placeholder="https://drive.google.com/..."
+                                               class="w-full border-gray-300 rounded-md shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500">
+                                    </div>
+                                    <button type="submit"
+                                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md font-medium whitespace-nowrap">
+                                        Simpan
+                                    </button>
+                                </form>
                             </div>
                         @endforeach
                     </div>

@@ -22,6 +22,7 @@ class ParameterController extends Controller
     {
         $validated = $request->validate([
             'name'           => 'required|string|unique:parameters,name',
+            'instrument'     => 'nullable|string|max:500',
             'category'       => 'nullable|string',
             'default_method' => 'nullable|string',
             'default_unit'   => 'nullable|string',
@@ -42,6 +43,7 @@ class ParameterController extends Controller
     {
         $validated = $request->validate([
             'name'           => 'required|string|unique:parameters,name,' . $parameter->id,
+            'instrument'     => 'nullable|string|max:500',
             'category'       => 'nullable|string',
             'default_method' => 'nullable|string',
             'default_unit'   => 'nullable|string',

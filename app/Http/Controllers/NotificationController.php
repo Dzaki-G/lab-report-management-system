@@ -64,19 +64,7 @@ class NotificationController extends Controller
             $form = \App\Models\FormPengujian::find($formId);
             if ($form) {
                 if (auth()->user()->role_id == \App\Enums\Role::ANALIS) {
-                    $hasAccess = $form->samples->flatMap->sampleParameters
-                        ->where('assigned_analyst_id', auth()->user()->user_id)->isNotEmpty();
-                    if ($hasAccess) {
-                        return redirect()->route('analis.form.show', $formId);
-                    } else {
-                        // Check if they have an SP3 document
-                        $sp3 = \App\Models\Sp3Document::where('form_id', $formId)
-                            ->where('assigned_analyst_id', auth()->user()->user_id)->first();
-                        if ($sp3) {
-                            return redirect()->route('analis.sp3.show', $sp3->id);
-                        }
-                        return redirect()->route('analis.dashboard');
-                    }
+                    return redirect()->route('analis.form.show', $formId);
                 } else {
                     return redirect()->route('form-list.show', $formId);
                 }

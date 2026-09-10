@@ -91,52 +91,40 @@ class DashboardController extends Controller
 
         $upcomingDeadlines = FormPengujian::where('deadline_date', '>=', Carbon::today())
             ->where('deadline_date', '<=', Carbon::today()->addDays(3))
-            ->whereNotIn('status', ['selesai', 'ditolak'])
+            ->where('status', '!=', 'selesai')
             ->with('samples')
             ->orderBy('deadline_date')
             ->take(5)
             ->get();
 
-        $pendingValidation = FormPengujian::where('status', 'validasi_admin')->count();
-        $totalActive = FormPengujian::whereNotIn('status', ['selesai', 'ditolak'])->count();
+        $totalActive = FormPengujian::where('status', '!=', 'selesai')->count();
         $totalSelesai = FormPengujian::where('status', 'selesai')->count();
-
-        // Forms in testing status but not claimed by any analis
-        $formsNeedingAssignment = FormPengujian::with('samples')
-            ->where('status', 'dalam_pengujian')
-            ->whereNull('assigned_analyst_id')
-            ->get();
 
         return [
             'statusCounts' => $statusCounts,
             'upcomingDeadlines' => $upcomingDeadlines,
             'totalActive' => $totalActive,
             'totalSelesai' => $totalSelesai,
-            'formsNeedingAssignment' => $formsNeedingAssignment,
         ];
     }
 
     private function getKepalaUpaData()
     {
-        $pendingVerifikasi1 = FormPengujian::where('status', 'verifikasi_upa_1')->count();
         $pendingTtd = FormPengujian::where('status', 'ttd_upa')->count();
 
         return [
-            'pendingVerifikasi1' => $pendingVerifikasi1,
             'pendingTtd' => $pendingTtd,
-            'totalPending' => $pendingVerifikasi1 + $pendingTtd,
+            'totalPending' => $pendingTtd,
         ];
     }
 
     private function getKepalaDivisiData()
     {
-        $pendingVerifikasi = FormPengujian::where('status', 'verifikasi_divisi')->count();
-        $pendingVerifikasiHasil = FormPengujian::where('status', 'verifikasi_hasil_divisi')->count();
+        $pendingReview = FormPengujian::where('status', 'menunggu_review_divisi')->count();
 
         return [
-            'pendingVerifikasi' => $pendingVerifikasi,
-            'pendingVerifikasiHasil' => $pendingVerifikasiHasil,
-            'totalPending' => $pendingVerifikasi + $pendingVerifikasiHasil,
+            'pendingReview' => $pendingReview,
+            'totalPending' => $pendingReview,
         ];
     }
 
@@ -144,17 +132,11 @@ class DashboardController extends Controller
     {
         $userId = auth()->user()->user_id;
 
-        // Forms with parameters assigned to this analyst (in progress)
-        $myForms = FormPengujian::where('status', 'dalam_pengujian')
-            ->whereHas('samples.sampleParameters', function($q) use ($userId) {
-                $q->where('assigned_analyst_id', $userId);
-            })
-            ->count();
+        $myForms = FormPengujian::where('status', 'dalam_pengujian')->count();
 
-        // Completed forms with parameters assigned to this analyst
-        $completedForms = FormPengujian::whereIn('status', ['verifikasi_hasil_divisi', 'input_lhp', 'ttd_upa', 'kirim_customer', 'selesai'])
-            ->whereHas('samples.sampleParameters', function($q) use ($userId) {
-                $q->where('assigned_analyst_id', $userId);
+        $completedForms = FormPengujian::whereIn('status', ['menunggu_review_divisi', 'ttd_upa', 'selesai'])
+            ->whereHas('samples.sampleParameters', function ($q) use ($userId) {
+                $q->where('filled_by_analyst_id', $userId);
             })
             ->count();
 
@@ -169,7 +151,7 @@ class DashboardController extends Controller
      */
     private function getFormListData(Request $request)
     {
-        $query = FormPengujian::with(['samples.sampleParameters.parameter', 'samples.sampleParameters.assignedAnalyst', 'admin', 'assignedAnalyst']);
+        $query = FormPengujian::with(['samples.sampleParameters.parameter', 'samples.sampleParameters.filledByAnalyst', 'admin']);
         $user = auth()->user();
         $role = $user->role_id;
 
@@ -193,27 +175,17 @@ class DashboardController extends Controller
         if (!$hasFilters && $currentTab == 'aktif') {
             switch ($role) {
                 case Role::KEPALA_UPA:
-                    // Show forms waiting for UPA verification
-                    $query->whereIn('status', ['verifikasi_upa_1', 'verifikasi_hasil_upa']);
+                    $query->where('status', 'ttd_upa');
                     $defaultFilter = 'kepala_upa';
                     break;
                 case Role::KEPALA_DIVISI:
-                    // Show forms waiting for Divisi verification
-                    $query->whereIn('status', ['verifikasi_divisi', 'verifikasi_hasil_divisi']);
+                    $query->where('status', 'menunggu_review_divisi');
                     $defaultFilter = 'kepala_divisi';
                     break;
                 case Role::ANALIS:
-                    // Show forms in testing or assigned to this analyst
-                    $query->where(function($q) use ($user) {
-                        $q->where('status', 'dalam_pengujian')
-                          ->where(function($q2) use ($user) {
-                              $q2->whereNull('assigned_analyst_id')
-                                 ->orWhere('assigned_analyst_id', $user->user_id);
-                          });
-                    });
+                    $query->where('status', 'dalam_pengujian');
                     $defaultFilter = 'analis';
                     break;
-                // Admin sees all forms by default (no filter)
             }
         }
 
@@ -304,16 +276,10 @@ class DashboardController extends Controller
         ];
 
         $statusOptions = [
-            'verifikasi_upa_1' => 'Verifikasi UPA',
-            'verifikasi_divisi' => 'Verifikasi Divisi',
-            'dalam_pengujian' => 'Dalam Pengujian',
-            'verifikasi_hasil_divisi' => 'Ver. Hasil Divisi',
-            'input_lhp' => 'Input LHP',
-            'ttd_divisi_lhp' => 'TTD Divisi (LHP)',
-            'ttd_upa' => 'Menunggu TTD UPA',
-            'kirim_customer' => 'Kirim Ke Customer',
-            'selesai' => 'Selesai',
-            'ditolak' => 'Ditolak',
+            'dalam_pengujian'        => 'Dalam Pengujian',
+            'menunggu_review_divisi' => 'Menunggu Review Divisi',
+            'ttd_upa'                => 'Menunggu TTD Kepala UPA',
+            'selesai'                => 'Selesai',
         ];
 
         return [

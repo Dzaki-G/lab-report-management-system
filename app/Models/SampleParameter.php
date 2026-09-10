@@ -11,7 +11,7 @@ class SampleParameter extends Model
         'parameter_id',
         'method',
         'status',
-        'assigned_analyst_id',
+        'filled_by_analyst_id', // set automatically to whoever submits a result — attribution, not assignment
     ];
 
     public function sample()
@@ -24,9 +24,9 @@ class SampleParameter extends Model
         return $this->belongsTo(Parameter::class);
     }
 
-    public function assignedAnalyst()
+    public function filledByAnalyst()
     {
-        return $this->belongsTo(User::class, 'assigned_analyst_id', 'user_id');
+        return $this->belongsTo(User::class, 'filled_by_analyst_id', 'user_id');
     }
 
     public function analysisResult()

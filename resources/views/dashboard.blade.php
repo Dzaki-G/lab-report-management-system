@@ -151,7 +151,7 @@
                             @foreach($upcomingDeadlines as $form)
                                 <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white/80 backdrop-blur rounded-xl border border-red-100 shadow-sm hover:shadow-md transition-all group">
                                     <div class="mb-3 sm:mb-0">
-                                        <span class="font-bold text-gray-900">{{ $form->form_number }}</span>
+                                        <span class="font-bold text-gray-900">{{ $form->no_terima_sampel ?? $form->lhp_number ?? '-' }}</span>
                                         <span class="text-gray-500 ml-2 font-medium">· {{ $form->customer_name }}</span>
                                     </div>
                                     <div class="flex items-center flex-wrap gap-3 w-full sm:w-auto">
@@ -203,19 +203,7 @@
 
             {{-- Kepala UPA Dashboard --}}
             @if($role == \App\Enums\Role::KEPALA_UPA)
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div class="bg-gradient-to-br from-yellow-50 to-orange-50 border border-yellow-200 rounded-2xl p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
-                        <div class="absolute -right-4 -top-4 w-24 h-24 bg-yellow-500/10 rounded-full blur-xl group-hover:bg-yellow-500/20 transition-all"></div>
-                        <div class="flex items-center justify-between relative z-10">
-                            <div>
-                                <p class="text-xs font-bold text-yellow-600 uppercase tracking-widest mb-1">Verifikasi Penerimaan</p>
-                                <p class="text-4xl font-extrabold text-yellow-700 tracking-tight">{{ $pendingVerifikasi1 }}</p>
-                            </div>
-                            <div class="p-4 bg-white/60 backdrop-blur-sm rounded-xl text-yellow-600 shadow-sm">
-                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
-                            </div>
-                        </div>
-                    </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                     <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
                         <div class="absolute -right-4 -top-4 w-24 h-24 bg-blue-500/10 rounded-full blur-xl group-hover:bg-blue-500/20 transition-all"></div>
                         <div class="flex items-center justify-between relative z-10">
@@ -252,28 +240,16 @@
 
             {{-- Kepala Divisi Dashboard --}}
             @if($role == \App\Enums\Role::KEPALA_DIVISI)
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                     <div class="bg-gradient-to-br from-purple-50 to-fuchsia-50 border border-purple-200 rounded-2xl p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
                         <div class="absolute -right-4 -top-4 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-all"></div>
                         <div class="flex items-center justify-between relative z-10">
                             <div>
-                                <p class="text-xs font-bold text-purple-600 uppercase tracking-widest mb-1">Verifikasi Form</p>
-                                <p class="text-4xl font-extrabold text-purple-700 tracking-tight">{{ $pendingVerifikasi }}</p>
+                                <p class="text-xs font-bold text-purple-600 uppercase tracking-widest mb-1">Menunggu Review</p>
+                                <p class="text-4xl font-extrabold text-purple-700 tracking-tight">{{ $pendingReview }}</p>
                             </div>
                             <div class="p-4 bg-white/60 backdrop-blur-sm rounded-xl text-purple-600 shadow-sm">
                                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-200 rounded-2xl p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
-                        <div class="absolute -right-4 -top-4 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl group-hover:bg-indigo-500/20 transition-all"></div>
-                        <div class="flex items-center justify-between relative z-10">
-                            <div>
-                                <p class="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-1">Verifikasi Hasil</p>
-                                <p class="text-4xl font-extrabold text-indigo-700 tracking-tight">{{ $pendingVerifikasiHasil }}</p>
-                            </div>
-                            <div class="p-4 bg-white/60 backdrop-blur-sm rounded-xl text-indigo-600 shadow-sm">
-                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
                             </div>
                         </div>
                     </div>
@@ -479,7 +455,7 @@
                                         $currentDir = request('dir', 'asc');
                                         $sortOptions = [
                                             'deadline_date' => 'Deadline',
-                                            'form_number' => 'No. Form'
+                                            'no_terima_sampel' => 'No. Terima Sampel'
                                         ];
                                     @endphp
                                     <div class="flex gap-2">
@@ -603,7 +579,7 @@
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="flex items-center">
                                                         <div class="h-10 w-1 bg-indigo-500 rounded-r-md hidden group-hover:block absolute left-0"></div>
-                                                        <span class="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">{{ $form->form_number }}</span>
+                                                        <span class="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">{{ $form->no_terima_sampel ?? $form->lhp_number ?? '-' }}</span>
                                                     </div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
@@ -657,7 +633,7 @@
                                                             'dalam_pengujian' => [
                                                                 'role' => 'Analis',
                                                                 'bg' => 'bg-blue-100 text-blue-800 border border-blue-200',
-                                                                'users' => $form->samples->flatMap->sampleParameters->pluck('assignedAnalyst')->filter()->unique('user_id')->pluck('full_name')->take(2)->implode(', ')
+                                                                'users' => $form->samples->flatMap->sampleParameters->pluck('filledByAnalyst')->filter()->unique('user_id')->pluck('full_name')->take(2)->implode(', ')
                                                             ],
                                                             'verifikasi_hasil_divisi' => ['role' => 'Kepala Divisi', 'bg' => 'bg-indigo-100 text-indigo-800 border border-indigo-200'],
                                                             'input_lhp' => ['role' => 'Admin', 'bg' => 'bg-cyan-100 text-cyan-800 border border-cyan-200'],

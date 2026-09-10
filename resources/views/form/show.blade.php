@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Detail Form Pengujian: {{ $form->form_number }}
+                Detail Form Pengujian: {{ $form->no_terima_sampel ?? $form->lhp_number ?? '-' }}
             </h2>
             <a href="{{ route('form.index') }}" class="text-blue-600 hover:underline">← Kembali ke Daftar</a>
         </div>
@@ -32,12 +32,8 @@
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                         <div>
-                            <p class="text-sm text-gray-500">No. Form</p>
-                            <p class="font-medium text-gray-900">{{ $form->form_number }}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-500">No. SPU</p>
-                            <p class="font-medium text-gray-900">{{ $form->no_spu ?? '-' }}</p>
+                            <p class="text-sm text-gray-500">No. Terima Sampel</p>
+                            <p class="font-medium text-gray-900">{{ $form->no_terima_sampel ?? '-' }}</p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-500">No. Terima Sampel</p>
@@ -79,15 +75,10 @@
                         <div class="flex items-center justify-between overflow-x-auto pb-4">
                             @php
                                 $steps = [
-                                    1 => ['status' => 'verifikasi_upa_1', 'label' => 'Ver. UPA'],
-                                    2 => ['status' => 'verifikasi_divisi', 'label' => 'Ver. Divisi'],
-                                    3 => ['status' => 'dalam_pengujian', 'label' => 'Pengujian'],
-                                    4 => ['status' => 'verifikasi_hasil_divisi', 'label' => 'Ver. Hasil'],
-                                    5 => ['status' => 'input_lhp', 'label' => 'Input LHP'],
-                                    6 => ['status' => 'ttd_divisi_lhp', 'label' => 'TTD Divisi'],
-                                    7 => ['status' => 'ttd_upa', 'label' => 'TTD UPA'],
-                                    8 => ['status' => 'kirim_customer', 'label' => 'Kirim'],
-                                    9 => ['status' => 'selesai', 'label' => 'Selesai'],
+                                    1 => ['status' => 'dalam_pengujian',        'label' => 'Pengujian'],
+                                    2 => ['status' => 'menunggu_review_divisi', 'label' => 'Review Divisi'],
+                                    3 => ['status' => 'ttd_upa',                'label' => 'TTD UPA'],
+                                    4 => ['status' => 'selesai',                'label' => 'Selesai'],
                                 ];
                                 $statusOrder = array_column($steps, 'status');
                                 $currentIndex = array_search($form->status, $statusOrder);
@@ -108,7 +99,7 @@
                                         <span class="text-[10px] text-gray-500 mt-1 text-center leading-tight">{{ $verifierName }}</span>
                                     @endif
                                 </div>
-                                @if($num < 9)
+                                @if($num < 4)
                                     <div class="flex-1 h-1.5 mx-2 min-w-6 rounded-full {{ $num <= $currentIndex ? 'bg-gradient-to-r from-blue-500 to-indigo-500' : 'bg-gray-100' }}"></div>
                                 @endif
                             @endforeach
@@ -118,34 +109,16 @@
                     <div class="mt-4">
                         @php
                             $statusColors = [
-                                'draft' => 'bg-gray-100 text-gray-800',
-                                'verifikasi_upa_1' => 'bg-yellow-100 text-yellow-800',
-                                'verifikasi_divisi' => 'bg-purple-100 text-purple-800',
-                                'dalam_pengujian' => 'bg-blue-100 text-blue-800',
-                                'verifikasi_hasil_divisi' => 'bg-indigo-100 text-indigo-800',
-                                'input_lhp' => 'bg-pink-100 text-pink-800',
-                                'ttd_divisi_lhp' => 'bg-amber-100 text-amber-800',
-                                'ttd_upa' => 'bg-orange-100 text-orange-800',
-                                'kirim_customer' => 'bg-teal-100 text-teal-800',
-                                'verifikasi_hasil_upa' => 'bg-orange-100 text-orange-800',
-                                'validasi_admin' => 'bg-amber-100 text-amber-800',
-                                'selesai' => 'bg-green-100 text-green-800',
-                                'ditolak' => 'bg-red-100 text-red-800',
+                                'dalam_pengujian'        => 'bg-blue-100 text-blue-800',
+                                'menunggu_review_divisi' => 'bg-indigo-100 text-indigo-800',
+                                'ttd_upa'                => 'bg-orange-100 text-orange-800',
+                                'selesai'                => 'bg-green-100 text-green-800',
                             ];
                             $statusLabels = [
-                                'draft' => 'Draft',
-                                'verifikasi_upa_1' => 'Menunggu Verifikasi UPA',
-                                'verifikasi_divisi' => 'Menunggu Verifikasi Divisi',
-                                'dalam_pengujian' => 'Dalam Pengujian',
-                                'verifikasi_hasil_divisi' => 'Verifikasi Hasil (Divisi)',
-                                'input_lhp' => 'Input LHP',
-                                'ttd_divisi_lhp' => 'Menunggu TTD Kepala Divisi (LHP)',
-                                'ttd_upa' => 'Menunggu TTD Kepala UPA (LHP)',
-                                'kirim_customer' => 'Kirim ke Customer',
-                                'verifikasi_hasil_upa' => 'Verifikasi Hasil (UPA)',
-                                'validasi_admin' => 'Validasi Admin',
-                                'selesai' => 'Selesai',
-                                'ditolak' => 'Ditolak',
+                                'dalam_pengujian'        => 'Dalam Pengujian',
+                                'menunggu_review_divisi' => 'Menunggu Review Divisi',
+                                'ttd_upa'                => 'Menunggu TTD Kepala UPA',
+                                'selesai'                => 'Selesai',
                             ];
                         @endphp
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ $statusColors[$form->status] ?? 'bg-gray-100 text-gray-800' }}">
@@ -162,48 +135,46 @@
                         <div>
                             <h3 class="text-xl font-bold text-indigo-900 flex items-center gap-2">
                                 <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                                Dokumen SPU
+                                Dokumen LHP
                             </h3>
-                            @if($form->spu_generated_at)
+                            @if($form->lhp_uploaded_at)
                                 <p class="text-sm font-medium text-indigo-600/70 mt-1">
-                                    Di-generate: {{ $form->spu_generated_at->format('d M Y H:i') }}
+                                    Di-generate: {{ \Carbon\Carbon::parse($form->lhp_uploaded_at)->format('d M Y H:i') }}
                                 </p>
                             @else
                                 <p class="text-sm font-medium text-gray-500 mt-1">Belum di-generate</p>
                             @endif
                         </div>
                         <div class="flex flex-wrap gap-3 w-full md:w-auto">
-                            @if($form->spu_signed_doc_id)
-                                <a href="https://docs.google.com/document/d/{{ $form->spu_signed_doc_id }}/edit" target="_blank"
+                            @if($form->lhp_google_file_id)
+                                <a href="https://docs.google.com/document/d/{{ $form->lhp_google_file_id }}/edit" target="_blank"
                                    class="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-md shadow-emerald-500/20 text-sm font-bold rounded-xl transition-all hover:-translate-y-0.5 w-full md:w-auto">
-                                    📄 Lihat SPU (Signed)
+                                    📄 Lihat LHP
                                 </a>
-                            @elseif($form->spu_unsigned_doc_id)
-                                <a href="https://docs.google.com/document/d/{{ $form->spu_unsigned_doc_id }}/edit" target="_blank"
-                                   class="inline-flex items-center px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-md">
-                                    📄 Lihat SPU (Unsigned)
-                                </a>
-                            @endif
-
-                            @if(!$form->spu_unsigned_doc_id && !$form->spu_signed_doc_id)
-                                <form action="{{ route('form.generate-spu', $form) }}" method="POST" class="inline">
-                                    @csrf
-                                    <button type="submit" 
-                                            class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md">
-                                        Generate SPU
-                                    </button>
-                                </form>
-                            @elseif($form->spu_unsigned_doc_id && !$form->spu_signed_doc_id)
-                                <form action="{{ route('form.regenerate-spu', $form) }}" method="POST" class="inline ml-2">
-                                    @csrf
-                                    <button type="submit" 
-                                            class="inline-flex items-center px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded-md"
-                                            onclick="return confirm('Generate ulang SPU? File lama akan dihapus.')">
-                                        Regenerate SPU
-                                    </button>
-                                </form>
                             @endif
                         </div>
+                    </div>
+
+                    {{-- Admin: manually set/override LHP number --}}
+                    @if(auth()->user()->role_id === \App\Enums\Role::ADMIN)
+                        <div class="mt-5 pt-5 border-t border-indigo-100">
+                            <form action="{{ route('admin.update-lhp-number', $form) }}" method="POST"
+                                  class="flex flex-col sm:flex-row gap-3 items-end">
+                                @csrf
+                                <div class="flex-1">
+                                    <label class="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">No. LHP</label>
+                                    <input type="text" name="lhp_number"
+                                           value="{{ $form->lhp_number }}"
+                                           placeholder="001/LHP/NK/09/2026"
+                                           class="w-full text-sm font-medium bg-white border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm">
+                                </div>
+                                <button type="submit"
+                                        class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg transition-colors shadow-sm whitespace-nowrap">
+                                    Simpan No. LHP
+                                </button>
+                            </form>
+                        </div>
+                    @endif
                     </div>
                 </div>
             </div>
@@ -263,13 +234,13 @@
                                                         <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full {{ $sp->status === 'done' ? 'bg-emerald-600 text-white' : ($sp->status === 'in_progress' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600') }}">{{ ucfirst($sp->status) }}</span>
                                                     </div>
                                                     <div class="mt-auto">
-                                                        @if($sp->assignedAnalyst)
+                                                        @if($sp->filledByAnalyst)
                                                             <span class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md bg-white/60 shadow-sm">
                                                                 <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                                                                {{ $sp->assignedAnalyst->full_name }}
+                                                                {{ $sp->filledByAnalyst->full_name }}
                                                             </span>
                                                         @else
-                                                            <span class="text-xs text-gray-400 font-medium italic">Belum ditugaskan</span>
+                                                            <span class="text-xs text-gray-400 font-medium italic">Belum diisi</span>
                                                         @endif
                                                     </div>
                                                 </div>

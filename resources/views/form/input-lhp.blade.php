@@ -63,7 +63,7 @@
                                         <div>
                                             <p class="font-medium text-sm">{{ $sp3->sp3_number }}</p>
                                             <p class="text-xs text-gray-500">{{ $sp3->parameter->name ?? '-' }}</p>
-                                            <p class="text-xs text-gray-500">Analis: {{ $sp3->assignedAnalyst->full_name ?? '-' }}</p>
+                                            <p class="text-xs text-gray-500">Analis: {{ $sp3->samples->flatMap->sampleParameters->where('parameter_id', $sp3->parameter_id)->pluck('filledByAnalyst')->filter()->pluck('full_name')->first() ?? '-' }}</p>
                                         </div>
                                         <div class="text-right">
                                             @if($sp3->lcp_google_file_url)

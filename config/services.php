@@ -57,6 +57,7 @@ return [
         'spu_signed_full_template_id' => env('GOOGLE_SPU_SIGNED_FULL_TEMPLATE_ID'),
         'sp3_template_id' => env('GOOGLE_SP3_TEMPLATE_ID'),
         'sp3_signed_template_id' => env('GOOGLE_SP3_SIGNED_TEMPLATE_ID'),
+        'lhp_template_id' => env('GOOGLE_LHP_TEMPLATE_ID'),
     ],
 
 ];

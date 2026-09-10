@@ -14,7 +14,7 @@ class FormListController extends Controller
      */
     public function index(Request $request)
     {
-        $query = FormPengujian::with(['samples.sampleParameters.parameter', 'admin', 'assignedAnalyst']);
+        $query = FormPengujian::with(['samples.sampleParameters.parameter', 'admin']);
 
         // Search filter (form number or customer name)
         if ($request->filled('search')) {
@@ -127,7 +127,6 @@ class FormListController extends Controller
             'samples.sampleParameters.parameter',
             'samples.sampleParameters.analysisResult',
             'admin',
-            'assignedAnalyst',
             'verifications.verifier',
             'sp3Documents'
         ]);

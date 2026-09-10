@@ -13,10 +13,10 @@ class GoogleDocsService
     protected Client $client;
     protected Drive $driveService;
     protected Docs $docsService;
-    
+
     protected string $templatesFolderId;
-    protected string $spuFolderId;
     protected string $sp3FolderId;
+    protected string $lhpFolderId;
 
     /**
      * Sanitize a string the use as Google Drive file name.
@@ -24,45 +24,45 @@ class GoogleDocsService
      */
     protected function sanitizeFileName(string $name): string
     {
-        // Replace / and \ with - (most common issue)
         $name = str_replace(['/', '\\'], '-', $name);
-        // Remove other potentially problematic characters
         $name = preg_replace('/[\x00-\x1f]/', '', $name);
         return $name;
     }
 
-
     public function __construct()
     {
         $this->client = new Client();
-        
+
         // Fix for Windows SSL error 60 (MUST BE FIRST)
+        // NOTE: disabling certificate verification is a known security concern —
+        // left as-is here since it was a deliberate local-dev workaround, but
+        // worth revisiting (e.g. only disable when app()->environment('local'))
+        // before this ever runs anywhere production-like.
         $this->client->setHttpClient(new \GuzzleHttp\Client(['verify' => false]));
-        
+
         $clientId = config('services.google.client_id');
         $clientSecret = config('services.google.client_secret');
         $refreshToken = config('services.google.refresh_token');
-        
+
         if ($clientId && $clientSecret && $refreshToken) {
-            // OAuth Authentication
             $this->client->setClientId($clientId);
             $this->client->setClientSecret($clientSecret);
             $this->client->refreshToken($refreshToken);
         } else {
-            // Fallback to Service Account (Legacy)
             $this->client->setAuthConfig(base_path(env('GOOGLE_SERVICE_ACCOUNT_PATH')));
         }
-        
+
         $this->client->addScope(Drive::DRIVE);
         $this->client->addScope(Docs::DOCUMENTS);
-        
+
         $this->driveService = new Drive($this->client);
         $this->docsService = new Docs($this->client);
-        
-        $this->templatesFolderId = env('GOOGLE_TEMPLATES_FOLDER_ID');
-        $this->spuFolderId = env('GOOGLE_SPU_FOLDER_ID');
-        $this->sp3FolderId = env('GOOGLE_SP3_FOLDER_ID');
 
+        $this->templatesFolderId = env('GOOGLE_TEMPLATES_FOLDER_ID');
+        $this->sp3FolderId = env('GOOGLE_SP3_FOLDER_ID');
+        // New — output folder for the generated LHP documents.
+        // Add GOOGLE_LHP_FOLDER_ID to your .env before using generateLhp().
+        $this->lhpFolderId = env('GOOGLE_LHP_FOLDER_ID');
     }
 
     /**
@@ -71,51 +71,44 @@ class GoogleDocsService
     public function copyTemplate(string $templateFileId, string $newName, string $targetFolderId): array
     {
         try {
-            // First, check if the template is a native Google Doc or an uploaded file
             $templateFile = $this->driveService->files->get($templateFileId, ['fields' => 'mimeType']);
             $mimeType = $templateFile->getMimeType();
-            
+
             Log::info("Template mimeType: {$mimeType}");
-            
-            // If it's already a Google Doc, just copy it
+
             if ($mimeType === 'application/vnd.google-apps.document') {
                 $copy = new Drive\DriveFile([
                     'name' => $newName,
                     'parents' => [$targetFolderId],
                 ]);
                 $result = $this->driveService->files->copy($templateFileId, $copy);
-                
+
                 return [
                     'id' => $result->id,
                     'url' => "https://docs.google.com/document/d/{$result->id}/edit",
                 ];
             }
-            
-            // If it's a DOCX or other Office format, we need to:
-            // 1. Download the file content directly (NOT export - export only works for native docs)
-            // 2. Re-upload as Google Docs native format
+
             Log::info("Template is not native Google Docs, downloading and converting...");
-            
-            // Download the file content directly using alt=media
+
             $response = $this->driveService->files->get($templateFileId, ['alt' => 'media']);
             $fileContent = $response->getBody()->getContents();
-            
-            // Create a new Google Doc by uploading with conversion
+
             $newFile = new Drive\DriveFile([
                 'name' => $newName,
                 'parents' => [$targetFolderId],
-                'mimeType' => 'application/vnd.google-apps.document', // Convert to Google Docs
+                'mimeType' => 'application/vnd.google-apps.document',
             ]);
-            
+
             $result = $this->driveService->files->create($newFile, [
                 'data' => $fileContent,
                 'mimeType' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                 'uploadType' => 'multipart',
                 'fields' => 'id',
             ]);
-            
+
             Log::info("Created new Google Doc with ID: {$result->id}");
-            
+
             return [
                 'id' => $result->id,
                 'url' => "https://docs.google.com/document/d/{$result->id}/edit",
@@ -127,29 +120,27 @@ class GoogleDocsService
     }
 
     /**
-     * Replace placeholders in a Google Doc
+     * Replace placeholders in a Google Doc.
+     * Used both for initial generation AND for the lightweight signature
+     * patch on the LHP doc (see patchLhpSignature below) — same mechanism,
+     * no new file, no delete.
      */
     public function replacePlaceholders(string $documentId, array $replacements): void
     {
         try {
             $requests = [];
-            
-            Log::info("Replacing placeholders in document: {$documentId}");
-            Log::info("Replacements: " . json_encode($replacements));
-            
+
             foreach ($replacements as $placeholder => $value) {
                 $searchTexts = ['${' . $placeholder . '}', '{{' . $placeholder . '}}'];
-                
+
                 foreach ($searchTexts as $searchText) {
-                    Log::info("Will replace: '{$searchText}' with '{$value}'");
-                    
                     $requests[] = new Docs\Request([
                         'replaceAllText' => [
                             'containsText' => [
                                 'text' => $searchText,
                                 'matchCase' => true,
                             ],
-                            'replaceText' => $value ?? '',
+                            'replaceText' => (string) ($value ?? ''),
                         ],
                     ]);
                 }
@@ -159,9 +150,8 @@ class GoogleDocsService
                 $batchUpdateRequest = new Docs\BatchUpdateDocumentRequest([
                     'requests' => $requests,
                 ]);
-                
-                $response = $this->docsService->documents->batchUpdate($documentId, $batchUpdateRequest);
-                Log::info("BatchUpdate response: " . json_encode($response->getReplies()));
+
+                $this->docsService->documents->batchUpdate($documentId, $batchUpdateRequest);
             }
         } catch (\Exception $e) {
             Log::error("Failed to replace placeholders: " . $e->getMessage());
@@ -204,7 +194,7 @@ class GoogleDocsService
     }
 
     /**
-     * List all files in templates folder (for debugging)
+     * List all files in templates folder (debugging utility)
      */
     public function listTemplatesFolder(): array
     {
@@ -238,97 +228,14 @@ class GoogleDocsService
     }
 
     /**
-     * Generate SPU document (unsigned version)
+     * Generate SP3 document with table.
+     * UNCHANGED from before — SP3 is still generated once, at form creation,
+     * as a real Google Doc that analysts reference while working.
      */
-    public function generateSpuUnsigned(FormPengujian $form): array
+    public function generateSp3WithTable(string $sp3Number, array $samples, string $parameterName, string $perihal, ?string $noSppp = null, ?string $ik = null, ?string $analystName = null): array
     {
-        $form->load(['samples.sampleParameters.parameter']);
-        
-        // Find unsigned SPU template
-        $templateId = $this->getTemplateIdByName('SPU-Template-Unsigned.docx');
-        if (!$templateId) {
-            $templateId = $this->getTemplateIdByName('SPU-001.docx');
-        }
-        
-        if (!$templateId) {
-            throw new \Exception('SPU template not found in Google Drive');
-        }
-
-        // Copy template to SPU folder
-        $docName = $this->sanitizeFileName("SPU-{$form->form_number}");
-        $result = $this->copyTemplate($templateId, $docName, $this->spuFolderId);
-
-        // Replace placeholders
-        $this->replacePlaceholders($result['id'], [
-            'NO_SPU' => $form->no_spu ?? $form->form_number,
-            'NO_TERIMA_SAMPEL' => $form->no_terima_sampel ?? '-',
-            'PERIHAL' => $this->generatePerihal($form),
-            'TANGGAL' => now()->translatedFormat('j F Y'),
-        ]);
-
-        return $result;
-    }
-
-    /**
-     * Generate SPU document (signed version) - replaces unsigned
-     * Called when Kepala UPA approves/verifies the SPU
-     */
-    public function generateSpuSigned(FormPengujian $form): array
-    {
-        $form->load(['samples.sampleParameters.parameter']);
-        
-        // Find signed SPU template
-        $templateId = config('services.google.spu_signed_template_id'); // This should be the 'Signed UPA' template
-        
-        if (!$templateId) {
-             // Fallbacks
-            $templateId = $this->getTemplateIdByName('SPU-Template-Signed');
-             if (!$templateId) {
-                $templateId = $this->getTemplateIdByName('SPU-Template-Signed.docx');
-            }
-        }
-        
-        if (!$templateId) {
-            throw new \Exception('Signed SPU template not found in Google Drive');
-        }
-
-        // Copy template to SPU folder
-        $docName = $this->sanitizeFileName("SPU-{$form->form_number}");
-        $result = $this->copyTemplate($templateId, $docName, $this->spuFolderId);
-
-        // Replace placeholders - TANGGAL is filled NOW (approval date)
-        $this->replacePlaceholders($result['id'], [
-            'NO_SPU' => $form->no_spu ?? $form->form_number,
-            'NO_TERIMA_SAMPEL' => $form->no_terima_sampel ?? '-',
-            'PERIHAL' => $this->generatePerihal($form),
-            'TANGGAL' => now()->translatedFormat('j F Y'), // Approval date
-        ]);
-
-        // Populate sample table (dynamic rows)
-        $this->populateSpuTable($result['id'], $form);
-
-        return $result;
-    }
-
-    /**
-     * Generate SP3 document
-     */
-    public function generateSp3(string $sp3Number, array $sampleCodes, string $parameterName, string $perihal, string $noSpu): array
-    {
-        // ... (existing implementation if any, but we use generateSp3WithTable usually)
-        // Kept for backward compatibility if needed, otherwise rely on generateSp3WithTable
-        // For now, let's just make sure generateSp3WithTable is the main one.
-        return $this->generateSp3WithTable($sp3Number, $sampleCodes, $parameterName, $perihal, $noSpu);
-    }
-
-    /**
-     * Generate SP3 document with table
-     */
-    public function generateSp3WithTable(string $sp3Number, array $samples, string $parameterName, string $perihal, string $noSpu, ?string $noSppp = null, ?string $ik = null, ?string $analystName = null): array
-    {
-        // Find SP3 template
         $templateId = config('services.google.sp3_template_id');
-        
+
         if (!$templateId) {
             $templateId = $this->getTemplateIdByName('SP3-Template');
         }
@@ -338,43 +245,40 @@ class GoogleDocsService
         if (!$templateId) {
             $templateId = $this->getTemplateIdByName('SP3-001');
         }
-        
+
         if (!$templateId) {
             throw new \Exception('SP3 template not found in Google Drive');
         }
 
-        // Copy template to SP3 folder
         $docName = $this->sanitizeFileName($sp3Number);
         $result = $this->copyTemplate($templateId, $docName, $this->sp3FolderId);
 
-        // Replace placeholders
         $replacements = [
             'NO_SP3' => $sp3Number,
             'PERIHAL' => $perihal,
-            'NO_SPU' => $noSpu,
+            'NO_SPU' => '',
             'PARAMETER' => $parameterName,
             'TANGGAL' => now()->translatedFormat('j F Y'),
         ];
-        
+
         if ($noSppp) {
-             $replacements['NO_SPPP'] = $noSppp;
+            $replacements['NO_SPPP'] = $noSppp;
         }
 
         $this->replacePlaceholders($result['id'], $replacements);
 
-        // Populate sample table using dedicated method
         $this->populateSp3Table($result['id'], $samples, $parameterName, $ik, $analystName);
 
         return $result;
     }
-    
+
     /**
      * Generate "Perihal" text from parameters
      */
     public function generatePerihal(FormPengujian $form): string
     {
         $parameters = [];
-        
+
         foreach ($form->samples as $sample) {
             foreach ($sample->sampleParameters as $sp) {
                 if ($sp->parameter && !in_array($sp->parameter->name, $parameters)) {
@@ -382,195 +286,56 @@ class GoogleDocsService
                 }
             }
         }
-        
+
         if (empty($parameters)) {
             return 'Analisis Sampel';
         }
-        
+
         $count = count($parameters);
-        
+
         if ($count === 1) {
             return 'Analisis ' . $parameters[0];
         }
-        
+
         if ($count === 2) {
             return 'Analisis ' . $parameters[0] . ' dan ' . $parameters[1];
         }
-        
-        // 3 or more: "A, B, dan C"
+
         $last = array_pop($parameters);
         return 'Analisis ' . implode(', ', $parameters) . ', dan ' . $last;
     }
 
     /**
-     * Get document structure to find tables
-     */
-    public function getDocumentStructure(string $documentId): array
-    {
-        try {
-            $document = $this->docsService->documents->get($documentId);
-            return json_decode(json_encode($document->getBody()), true);
-        } catch (\Exception $e) {
-            Log::error("Failed to get document structure: " . $e->getMessage());
-            throw $e;
-        }
-    }
-
-    /**
-     * Find table containing a placeholder text
-     */
-    public function findTableWithPlaceholder(string $documentId, string $placeholder): ?array
-    {
-        try {
-            $document = $this->docsService->documents->get($documentId);
-            $body = $document->getBody();
-            $content = $body->getContent();
-
-            foreach ($content as $element) {
-                if ($element->getTable()) {
-                    $table = $element->getTable();
-                    $tableRows = $table->getTableRows();
-                    
-                    foreach ($tableRows as $rowIndex => $row) {
-                        $cells = $row->getTableCells();
-                        foreach ($cells as $cell) {
-                            $cellContent = $cell->getContent();
-                            foreach ($cellContent as $para) {
-                                if ($para->getParagraph()) {
-                                    $elements = $para->getParagraph()->getElements();
-                                    foreach ($elements as $elem) {
-                                        if ($elem->getTextRun()) {
-                                            $text = $elem->getTextRun()->getContent();
-                                            if (strpos($text, $placeholder) !== false) {
-                                                return [
-                                                    'tableStartIndex' => $element->getStartIndex(),
-                                                    'tableEndIndex' => $element->getEndIndex(),
-                                                    'templateRowIndex' => $rowIndex,
-                                                    'rowStartIndex' => $row->getStartIndex(),
-                                                    'rowEndIndex' => $row->getEndIndex(),
-                                                ];
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            return null;
-        } catch (\Exception $e) {
-            Log::error("Failed to find table: " . $e->getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Populate SPU table with sample data using DYNAMIC row insertion
-     * 
-     * STRUKTUR TABEL SPU:
-     * - Group by Parameter: Sampel dikelompokkan berdasarkan parameter
-     * - Parameter 1x per grup: Nama parameter hanya muncul di row pertama tiap grup
-     * - Sampel bisa muncul berkali-kali: Jika sampel punya banyak parameter
-     * - UNLIMITED ROWS: Menggunakan insertTableRow
-     * 
-     * Template harus punya row dengan placeholder: {{ROW}}
-     */
-    public function populateSpuTable(string $documentId, FormPengujian $form): void
-    {
-        $form->load(['samples.sampleParameters.parameter']);
-
-        // Step 1: Build parameter -> samples mapping
-        $parameterSamples = [];
-        $parameterInfo = [];
-        
-        foreach ($form->samples as $sample) {
-            foreach ($sample->sampleParameters as $sp) {
-                if ($sp->parameter) {
-                    $paramId = $sp->parameter->id;
-                    
-                    if (!isset($parameterSamples[$paramId])) {
-                        $parameterSamples[$paramId] = [];
-                        $parameterInfo[$paramId] = [
-                            'name' => $sp->parameter->name,
-                            'method' => $sp->parameter->default_method ?? '-',
-                        ];
-                    }
-                    
-                    $parameterSamples[$paramId][] = [
-                        'sample_code' => $sample->sample_code,
-                        'sample_name' => $sample->sample_name,
-                    ];
-                }
-            }
-        }
-
-        // Step 2: Build table data (grouped by parameter)
-        $tableData = [];
-        $no = 1;
-        
-        foreach ($parameterSamples as $paramId => $samples) {
-            $isFirstInGroup = true;
-            
-            foreach ($samples as $sample) {
-                $tableData[] = [
-                    $no++,
-                    $sample['sample_code'],
-                    $sample['sample_name'],
-                    $isFirstInGroup ? $parameterInfo[$paramId]['name'] : '',
-                    $isFirstInGroup ? $parameterInfo[$paramId]['method'] : '',
-                ];
-                $isFirstInGroup = false;
-            }
-        }
-
-        // Step 3: Populate table dynamically
-        $this->insertTableDataDynamic($documentId, '{{ROW}}', $tableData);
-    }
-
-    /**
-     * Insert table data dynamically using Google Docs API
-     * 
-     * SIMPLIFIED APPROACH:
-     * 1. For the first row: replace {{ROW}} with the actual data (using cell placeholders)
-     * 2. For subsequent rows: duplicate the last data row and fill
-     * 
-     * Alternative simpler approach used here:
-     * - Replace {{ROW}} placeholder with all rows as text
-     * - Use newlines to separate rows within the same cell
-     * 
+     * Insert table data dynamically using Google Docs API.
+     * Generic engine — used for SP3's table AND the LHP results table.
+     * Template must have a row containing the given placeholder (e.g. "{{ROW}}").
+     *
      * @param string $documentId Document ID
      * @param string $placeholder Placeholder text to find (e.g. "{{ROW}}")
      * @param array $data Array of rows, each row is array of cell values
+     * @return int|null The tableStartIndex of the populated table, or null if not found
      */
-    public function insertTableDataDynamic(string $documentId, string $placeholder, array $data): void
+    public function insertTableDataDynamic(string $documentId, string $placeholder, array $data): ?int
     {
         if (empty($data)) {
-            // Just remove the placeholder
             $this->replaceTextSimple($documentId, $placeholder, '');
-            return;
+            return null;
         }
 
         try {
-            Log::info("insertTableDataDynamic: Processing " . count($data) . " rows");
-            
-            // Get document structure
             $document = $this->docsService->documents->get($documentId);
             $tableInfo = $this->findTableInfo($document, $placeholder);
 
             if (!$tableInfo) {
                 Log::warning("Template row with placeholder '{$placeholder}' not found");
-                return;
+                return null;
             }
 
-            Log::info("Found table at index: " . $tableInfo['tableStartIndex'] . ", row: " . $tableInfo['rowIndex']);
+            $tableStartIndex = $tableInfo['tableStartIndex'];
 
-            // Process rows one by one to avoid index issues
-            // First, insert all the new rows we need (all at once)
             if (count($data) > 0) {
                 $insertRowRequests = [];
-                
-                // Insert (count - 1) new rows because we'll use the template row for the first data
+
                 for ($i = 0; $i < count($data) - 1; $i++) {
                     $insertRowRequests[] = new Docs\Request([
                         'insertTableRow' => [
@@ -587,7 +352,6 @@ class GoogleDocsService
                 }
 
                 if (!empty($insertRowRequests)) {
-                    Log::info("Inserting " . count($insertRowRequests) . " new rows");
                     $batchUpdateRequest = new Docs\BatchUpdateDocumentRequest([
                         'requests' => $insertRowRequests,
                     ]);
@@ -595,98 +359,122 @@ class GoogleDocsService
                 }
             }
 
-            // Now fill data using replaceAllText for each unique placeholder
-            // First, let's clear the {{ROW}} placeholder from the template row
             $this->replaceTextSimple($documentId, $placeholder, '');
-            
-            // Get fresh document structure
+
             $document = $this->docsService->documents->get($documentId);
             $body = $document->getBody();
             $content = $body->getContent();
-            
-            // Find our table again
+
             foreach ($content as $element) {
                 if (!$element->getTable()) continue;
                 if ($element->getStartIndex() != $tableInfo['tableStartIndex']) continue;
-                
+
                 $table = $element->getTable();
                 $tableRows = $table->getTableRows();
-                
-                // Data rows start at the template row index
+
                 $startRowIndex = $tableInfo['rowIndex'];
-                
-                // Build insert requests
-                $textInsertRequests = [];
-                
-                for ($dataIndex = 0; $dataIndex < count($data); $dataIndex++) {
-                    $rowIndex = $startRowIndex + $dataIndex;
-                    if (!isset($tableRows[$rowIndex])) {
-                        Log::warning("Row index {$rowIndex} not found in table");
+
+                // Process each cell individually with a fresh document read each time.
+                // Index-based insertText shifts all subsequent positions in the doc,
+                // so stale indices — even within the same row — cause out-of-bounds
+                // errors. Re-reading per cell is slower but guaranteed correct.
+                // Order: last row → first row, rightmost col → leftmost col,
+                // so insertions never disturb indices for cells we haven't touched yet.
+                for ($dataIndex = count($data) - 1; $dataIndex >= 0; $dataIndex--) {
+                    $rowData = $data[$dataIndex];
+
+                    // Collect non-empty (colIndex, text) pairs for this row
+                    $colsToInsert = [];
+                    for ($colIndex = 0; $colIndex < count($rowData); $colIndex++) {
+                        $textToInsert = str_replace(["\r\n", "\r", "\n"], ' ', (string) ($rowData[$colIndex] ?? ''));
+                        if ($textToInsert !== '') {
+                            $colsToInsert[] = ['col' => $colIndex, 'text' => $textToInsert];
+                        }
+                    }
+
+                    if (empty($colsToInsert)) {
                         continue;
                     }
-                    
-                    $row = $tableRows[$rowIndex];
-                    $cells = $row->getTableCells();
-                    $rowData = $data[$dataIndex];
-                    
-                    for ($colIndex = 0; $colIndex < count($cells) && $colIndex < count($rowData); $colIndex++) {
-                        $cell = $cells[$colIndex];
-                        $cellContent = $cell->getContent();
-                        
-                        // Get the text to insert - skip if empty
-                        $textToInsert = (string) ($rowData[$colIndex] ?? '');
-                        if ($textToInsert === '') {
-                            continue; // Skip empty cells - API rejects empty insertText
+
+                    // Right-to-left within the row
+                    usort($colsToInsert, fn($a, $b) => $b['col'] - $a['col']);
+
+                    foreach ($colsToInsert as $colEntry) {
+                        // Fresh read every cell so indices are always accurate
+                        $freshDoc   = $this->docsService->documents->get($documentId);
+                        $freshTable = $this->findTableByStartIndex($freshDoc, $tableInfo['tableStartIndex']);
+                        if (!$freshTable) {
+                            Log::warning("Table not found at startIndex {$tableInfo['tableStartIndex']} on fresh read");
+                            continue;
                         }
-                        
-                        // Get the start index of the paragraph inside the cell
-                        if (!empty($cellContent)) {
-                            $para = $cellContent[0];
-                            if ($para && $para->getParagraph()) {
-                                // Insert at the start of the paragraph (after paragraph marker)
-                                $insertIndex = $para->getStartIndex();
-                                
-                                $textInsertRequests[] = [
-                                    'index' => $insertIndex,
-                                    'text' => $textToInsert,
-                                ];
-                            }
+
+                        $freshRows  = $freshTable->getTableRows();
+                        $rowIndex   = $startRowIndex + $dataIndex;
+                        if (!isset($freshRows[$rowIndex])) {
+                            Log::warning("Row {$rowIndex} not found after fresh read");
+                            continue;
                         }
+
+                        $freshCells = $freshRows[$rowIndex]->getTableCells();
+                        if (!isset($freshCells[$colEntry['col']])) {
+                            continue;
+                        }
+
+                        $cellContent = $freshCells[$colEntry['col']]->getContent();
+                        if (empty($cellContent)) {
+                            continue;
+                        }
+
+                        $para = $cellContent[0];
+                        if (!$para || !$para->getParagraph()) {
+                            continue;
+                        }
+
+                        $insertIndex = $para->getEndIndex() - 1;
+                        if ($insertIndex < 0) {
+                            Log::warning("Skipping negative insertIndex {$insertIndex}");
+                            continue;
+                        }
+
+                        Log::info("insertText row={$rowIndex} col={$colEntry['col']} index={$insertIndex} text='" . substr($colEntry['text'], 0, 30) . "'");
+                        $this->docsService->documents->batchUpdate(
+                            $documentId,
+                            new Docs\BatchUpdateDocumentRequest([
+                                'requests' => [
+                                    new Docs\Request([
+                                        'insertText' => [
+                                            'location' => ['index' => $insertIndex],
+                                            'text'     => $colEntry['text'],
+                                        ],
+                                    ]),
+                                ],
+                            ])
+                        );
                     }
                 }
-                
-                // Execute insertions in REVERSE order to maintain correct indices
-                usort($textInsertRequests, function($a, $b) {
-                    return $b['index'] - $a['index']; // Descending order
-                });
-                
-                $requests = [];
-                foreach ($textInsertRequests as $req) {
-                    $requests[] = new Docs\Request([
-                        'insertText' => [
-                            'location' => ['index' => $req['index']],
-                            'text' => $req['text'],
-                        ],
-                    ]);
-                }
-                
-                if (!empty($requests)) {
-                    Log::info("Inserting text into " . count($requests) . " cells");
-                    $batchUpdateRequest = new Docs\BatchUpdateDocumentRequest([
-                        'requests' => $requests,
-                    ]);
-                    $this->docsService->documents->batchUpdate($documentId, $batchUpdateRequest);
-                }
-                
+
                 break;
             }
-            
-            Log::info("Successfully inserted " . count($data) . " rows into table");
-            
+
+            return $tableStartIndex;
         } catch (\Exception $e) {
             Log::error("Failed to insert table data: " . $e->getMessage());
             throw $e;
         }
+    }
+
+    /**
+     * Find a table element by its known startIndex.
+     */
+    private function findTableByStartIndex($document, int $startIndex)
+    {
+        $content = $document->getBody()->getContent();
+        foreach ($content as $element) {
+            if ($element->getTable() && $element->getStartIndex() == $startIndex) {
+                return $element->getTable();
+            }
+        }
+        return null;
     }
 
     /**
@@ -699,21 +487,21 @@ class GoogleDocsService
 
         foreach ($content as $element) {
             if (!$element->getTable()) continue;
-            
+
             $table = $element->getTable();
             $tableRows = $table->getTableRows();
-            
+
             foreach ($tableRows as $rowIndex => $row) {
                 $cells = $row->getTableCells();
                 foreach ($cells as $cell) {
                     $cellContent = $cell->getContent();
                     foreach ($cellContent as $para) {
                         if (!$para->getParagraph()) continue;
-                        
+
                         $elements = $para->getParagraph()->getElements();
                         foreach ($elements as $elem) {
                             if (!$elem->getTextRun()) continue;
-                            
+
                             $text = $elem->getTextRun()->getContent();
                             if (strpos($text, $placeholder) !== false) {
                                 return [
@@ -728,7 +516,7 @@ class GoogleDocsService
                 }
             }
         }
-        
+
         return null;
     }
 
@@ -753,7 +541,7 @@ class GoogleDocsService
             $batchUpdateRequest = new Docs\BatchUpdateDocumentRequest([
                 'requests' => $requests,
             ]);
-            
+
             $this->docsService->documents->batchUpdate($documentId, $batchUpdateRequest);
         } catch (\Exception $e) {
             Log::error("Failed to replace text: " . $e->getMessage());
@@ -762,200 +550,404 @@ class GoogleDocsService
     }
 
     /**
-     * Populate SP3 table with sample data using DYNAMIC row insertion
-     * Template harus punya row dengan placeholder: {{ROW}}
-     * 
+     * Populate SP3 table with sample data using DYNAMIC row insertion.
+     * UNCHANGED. Template must have a row with placeholder: {{ROW}}
      * Kolom: No, Kode Sampel, Parameter Uji, IK, Analis, Tgl Paraf
-     * Note: IK dan Analis hanya muncul di baris pertama
+     * IK dan Analis hanya muncul di baris pertama.
      */
     public function populateSp3Table(string $documentId, array $samples, string $parameterName, ?string $ik = null, ?string $analystName = null): void
     {
-        // Build table data from samples
         $tableData = [];
         $no = 1;
-        
+
         foreach ($samples as $sample) {
             $isFirstRow = ($no === 1);
-            
+
             $tableData[] = [
                 $no++,
                 $sample['sample_code'],
                 $parameterName,
-                $isFirstRow ? ($ik ?? '') : '', // IK only on first row
-                $isFirstRow ? ($analystName ?? '') : '', // Analis only on first row
-                '', // Tgl Paraf - to be filled later
+                $isFirstRow ? ($ik ?? '') : '',
+                $isFirstRow ? ($analystName ?? '') : '',
+                '',
             ];
         }
 
-        // Use dynamic table insertion
         $this->insertTableDataDynamic($documentId, '{{ROW}}', $tableData);
     }
 
+    /**
+     * Generate the LHP (Laporan Hasil Pengujian) document.
+     *
+     * This is the ONLY point in the whole lifecycle this document is
+     * created — never regenerated afterward. Called once, when Kepala
+     * Divisi's approval of the last pending SP3 completes (see
+     * KepalaDivisiController::maybeGenerateLhp()).
+     *
+     * Page 1: form/customer info (placeholders).
+     * Page 2: results table, grouped by sample — columns confirmed as:
+     *   No | Nama Sampel/Kode Sampel | Parameter Uji | Satuan | Hasil* | Metode Uji
+     * The footnote text under the table is expected to already exist as
+     * static content in the template — it is NOT generated here.
+     *
+     * Leaves ${UPA_NAME} / ${UPA_TANGGAL} placeholders blank for
+     * patchLhpSignature() to fill in later.
+     */
+    public function generateLhp(FormPengujian $form, ?string $divisiName = null): array
+    {
+        $form->load([
+            'samples.sampleParameters.parameter',
+            'samples.sampleParameters.analysisResult',
+        ]);
 
-    // New methods below
+        $templateId = config('services.google.lhp_template_id');
+        if (!$templateId) {
+            $templateId = $this->getTemplateIdByName('LHP-Template');
+        }
+        if (!$templateId) {
+            $templateId = $this->getTemplateIdByName('LHP-Template.docx');
+        }
+        if (!$templateId) {
+            $templateId = $this->getTemplateIdByName('temporaryLHP_1');
+        }
+        if (!$templateId) {
+            $templateId = $this->getTemplateIdByName('temporaryLHP_1.docx');
+        }
 
+        if (!$templateId) {
+            throw new \Exception('LHP template not found in Google Drive');
+        }
+
+        $docName = $this->sanitizeFileName("LHP-{$form->form_number}");
+        $result = $this->copyTemplate($templateId, $docName, $this->lhpFolderId);
+
+        // Auto-generate LHP number if not already set
+        if (!$form->lhp_number) {
+            $form->update(['lhp_number' => \App\Models\FormPengujian::generateLhpNumber()]);
+            $form->refresh();
+        }
+
+        // Derive TANGGAL_ANALISIS from min/max analysis dates
+        $analysisDates = collect();
+        foreach ($form->samples as $sample) {
+            foreach ($sample->sampleParameters as $sp) {
+                if ($sp->analysisResult?->analysis_date) {
+                    $analysisDates->push(\Carbon\Carbon::parse($sp->analysisResult->analysis_date));
+                }
+            }
+        }
+        if ($analysisDates->isNotEmpty()) {
+            $minDate = $analysisDates->min()->translatedFormat('j F Y');
+            $maxDate = $analysisDates->max()->translatedFormat('j F Y');
+            $tanggalAnalisis = ($minDate === $maxDate) ? $minDate : "{$minDate} - {$maxDate}";
+        } else {
+            $tanggalAnalisis = '-';
+        }
+
+        // Collect unique instruments from analysis results (analyst-entered), fall back to parameter default
+        $instruments = collect();
+        foreach ($form->samples as $sample) {
+            foreach ($sample->sampleParameters as $sp) {
+                $instrument = $sp->analysisResult?->instrument
+                    ?: $sp->parameter?->instrument;
+                if ($instrument) {
+                    $instruments->push($instrument);
+                }
+            }
+        }
+        $instrumentText = $instruments->unique()->filter()->implode(', ') ?: '-';
+
+        // Page 1 — form/customer info
+        $this->replacePlaceholders($result['id'], [
+            'NO_LHP'             => $form->lhp_number ?? '-',
+            'FORM_NUMBER'        => $form->form_number,
+            'NO_TERIMA_SAMPEL'   => $form->no_terima_sampel ?? '-',
+            'CUSTOMER_NAME'      => $form->customer_name ?? '-',
+            'CUSTOMER_ADDRESS'   => $form->customer_address ?? '-',
+            'CUSTOMER_INSTITUTION' => $form->customer_institution ?? '-',
+            'CUSTOMER_POSITION'  => $form->customer_position ?? '-',
+            'CUSTOMER_PHONE'     => $form->customer_phone ?? '-',
+            'CONTACT_PERSON'     => $form->contact_person ?? '-',
+            'RECEIVED_DATE'      => optional($form->received_date)->translatedFormat('j F Y') ?? '-',
+            'TANGGAL_ANALISIS'   => $tanggalAnalisis,
+            'PERIHAL'            => $this->generatePerihal($form),
+            'TANGGAL'            => now()->translatedFormat('j F Y'),
+            'DIVISI_NAME'        => $divisiName ?? '',
+            'INSTRUMENT'         => $instrumentText,
+            'SAMPLE_TYPE'        => $form->sample_type ?? '-',
+            'SAMPLE_MATRIX'      => $form->sample_matrix ?? '-',
+            'SAMPLE_NAME_LABEL'  => $form->sample_name_label ?? '-',
+            'SAMPLE_FORM'        => $form->sample_form ?? '-',
+            'SAMPLE_PACKING'     => $form->sample_packing ?? '-',
+            'SAMPLE_COUNT'       => $form->sample_count ?? $form->samples->count(),
+            // Left blank on purpose — filled later by patchLhpSignature()
+            'UPA_NAME'           => '',
+            'UPA_TANGGAL'        => '',
+        ]);
+
+        // Page 2 — results table, grouped by sample
+        $this->populateLhpTable($result['id'], $form);
+
+        return $result;
+    }
 
     /**
-     * Update SP3 document with assignment info
-     * To be called by Kepala Divisi or Admin
+     * Populate the LHP results table.
+     * Columns: No | Nama Sampel/Kode Sampel | Parameter Uji | Satuan | Hasil | Metode Uji
+     * "No" and "Nama Sampel/Kode Sampel" only appear on the first row of
+     * each sample's group (blank on subsequent rows for that sample) —
+     * mirrors the reference table layout provided.
      */
-    public function updateSp3Info(string $documentId, ?string $noSppp = '', ?string $ik = '', ?string $analystName = ''): void
+    private function populateLhpTable(string $documentId, FormPengujian $form): void
+    {
+        $tableData = [];
+        $sampleGroups = []; // Track row ranges for each sample to merge later
+        $no = 1;
+        $currentRow = 0;
+
+        foreach ($form->samples as $sample) {
+            $isFirstInGroup = true;
+            $sampleLabel = $sample->sample_name . ' / ' . $sample->sample_code;
+            $groupStartRow = $currentRow;
+            $rowsInGroup = 0;
+
+            foreach ($sample->sampleParameters as $sp) {
+                if (!$sp->parameter) {
+                    continue;
+                }
+
+                $result = $sp->analysisResult;
+                $unit = $result?->result_unit ?? $sp->parameter->default_unit ?? '-';
+                $hasil = $result?->result_value ?? '-';
+                $metode = $sp->method ?? $sp->parameter->default_method ?? '-';
+
+                // 6-cell structure (after merging sample column in template):
+                // No | Sample (merged) | Parameter | Unit | Results | Method
+                $tableData[] = [
+                    $isFirstInGroup ? $no : '',
+                    $isFirstInGroup ? $sampleLabel : '',
+                    $sp->parameter->name,
+                    $unit,
+                    $hasil,
+                    $metode,
+                ];
+
+                $isFirstInGroup = false;
+                $currentRow++;
+                $rowsInGroup++;
+            }
+
+            // Only track groups with multiple rows (need merging)
+            if ($rowsInGroup > 1) {
+                $sampleGroups[] = [
+                    'startRow' => $groupStartRow,
+                    'rowCount' => $rowsInGroup,
+                ];
+            }
+
+            $no++;
+        }
+
+        // insertTableDataDynamic returns the tableStartIndex it used
+        $tableStartIndex = $this->insertTableDataDynamic($documentId, '{{ROW}}', $tableData);
+
+        // Now merge cells for each sample group using the correct table
+        if (!empty($sampleGroups) && $tableStartIndex !== null) {
+            $this->mergeLhpTableCells($documentId, $sampleGroups, $tableStartIndex);
+        }
+    }
+
+    /**
+     * Merge cells vertically for sample groups in the LHP table.
+     * Merges column 0 (No.) and column 1 (Sample Name/Code) across multiple parameter rows.
+     */
+    private function mergeLhpTableCells(string $documentId, array $sampleGroups, int $tableStartIndex): void
+    {
+        try {
+            $document = $this->docsService->documents->get($documentId);
+            $content = $document->getBody()->getContent();
+
+            // Find the specific table by its startIndex
+            $table = null;
+            foreach ($content as $element) {
+                if ($element->getTable() && $element->getStartIndex() == $tableStartIndex) {
+                    $table = $element->getTable();
+                    $tableRowCount = count($table->getTableRows());
+                    Log::info("Found results table at index {$tableStartIndex} with {$tableRowCount} rows");
+
+                    // Debug: check cell counts per row
+                    foreach ($table->getTableRows() as $rowIdx => $row) {
+                        $cellCount = count($row->getTableCells());
+                        Log::info("  Row {$rowIdx}: {$cellCount} cells");
+                    }
+                    break;
+                }
+            }
+
+            if (!$table) {
+                Log::warning("Could not find results table at index {$tableStartIndex} for merging");
+                return;
+            }
+
+            // Data starts at row 2 (after 2 header rows)
+            $dataStartRow = 2;
+
+            $requests = [];
+
+            foreach ($sampleGroups as $group) {
+                $startRow = $dataStartRow + $group['startRow'];
+
+                Log::info("Merging sample group: startRow={$startRow}, rowSpan={$group['rowCount']}, columnIndex=0");
+
+                // Merge column 0 (No.) vertically
+                $requests[] = new Docs\Request([
+                    'mergeTableCells' => [
+                        'tableRange' => [
+                            'tableCellLocation' => [
+                                'tableStartLocation' => ['index' => $tableStartIndex],
+                                'rowIndex' => $startRow,
+                                'columnIndex' => 0,
+                            ],
+                            'rowSpan' => $group['rowCount'],
+                            'columnSpan' => 1,
+                        ],
+                    ],
+                ]);
+
+                // Merge column 1 (Sample Name/Code) vertically
+                $requests[] = new Docs\Request([
+                    'mergeTableCells' => [
+                        'tableRange' => [
+                            'tableCellLocation' => [
+                                'tableStartLocation' => ['index' => $tableStartIndex],
+                                'rowIndex' => $startRow,
+                                'columnIndex' => 1,
+                            ],
+                            'rowSpan' => $group['rowCount'],
+                            'columnSpan' => 1,
+                        ],
+                    ],
+                ]);
+            }
+
+            if (!empty($requests)) {
+                Log::info("Executing " . count($requests) . " merge requests");
+                $this->docsService->documents->batchUpdate(
+                    $documentId,
+                    new Docs\BatchUpdateDocumentRequest(['requests' => $requests])
+                );
+                Log::info("Successfully merged cells for " . count($sampleGroups) . " sample groups");
+            }
+        } catch (\Exception $e) {
+            Log::error("Failed to merge LHP table cells: " . $e->getMessage());
+            Log::error($e->getTraceAsString());
+            // Non-fatal - table is already populated, just not merged
+        }
+    }
+
+    /**
+     * Upload a signature image to Google Drive, make it publicly readable,
+     * and return the file ID and public URL.
+     */
+    public function uploadSignatureImage(string $imageContent, string $mimeType, string $fileName): array
+    {
+        $signaturesFolderId = env('GOOGLE_SIGNATURES_FOLDER_ID', $this->templatesFolderId);
+
+        $file = new Drive\DriveFile([
+            'name' => $fileName,
+            'parents' => [$signaturesFolderId],
+        ]);
+
+        $result = $this->driveService->files->create($file, [
+            'data' => $imageContent,
+            'mimeType' => $mimeType,
+            'uploadType' => 'multipart',
+            'fields' => 'id',
+        ]);
+
+        // Make publicly readable so Google Docs API can fetch it for replaceImage
+        $permission = new Drive\Permission([
+            'type' => 'anyone',
+            'role' => 'reader',
+        ]);
+        $this->driveService->permissions->create($result->id, $permission);
+
+        return [
+            'id' => $result->id,
+            'url' => "https://drive.google.com/uc?export=view&id={$result->id}",
+        ];
+    }
+
+    /**
+     * Replace an inline image in a Google Doc identified by its alt text.
+     * The template must have a placeholder image with alt text matching $altText.
+     */
+    public function replaceImageByAltText(string $documentId, string $altText, string $imageUri): void
+    {
+        $doc = $this->docsService->documents->get($documentId);
+        $inlineObjects = $doc->getInlineObjects();
+
+        if (!$inlineObjects) {
+            return;
+        }
+
+        foreach ($inlineObjects as $objectId => $inlineObject) {
+            $embeddedObject = $inlineObject->getInlineObjectProperties()?->getEmbeddedObject();
+            if (!$embeddedObject) {
+                continue;
+            }
+
+            $title = $embeddedObject->getTitle() ?? '';
+            $description = $embeddedObject->getDescription() ?? '';
+
+            if ($title === $altText || $description === $altText) {
+                $requests = [
+                    new Docs\Request([
+                        'replaceImage' => [
+                            'imageObjectId' => $objectId,
+                            'uri' => $imageUri,
+                            'imageReplaceMethod' => 'CENTER_CROP',
+                        ],
+                    ]),
+                ];
+
+                $batchUpdateRequest = new Docs\BatchUpdateDocumentRequest([
+                    'requests' => $requests,
+                ]);
+
+                $this->docsService->documents->batchUpdate($documentId, $batchUpdateRequest);
+                return;
+            }
+        }
+
+        Log::warning("replaceImageByAltText: no image with alt text '{$altText}' found in doc {$documentId}");
+    }
+
+    /**
+     * Patch the UPA signature onto the already-generated LHP doc.
+     * Replaces text placeholders AND the {{UPA_SIGNATURE}} placeholder image.
+     */
+    public function patchLhpSignature(string $documentId, string $upaName, string $upaDate, ?string $signatureImageUri = null): void
     {
         $this->replacePlaceholders($documentId, [
-            'NO_SPPP' => $noSppp ?? '',
-            'IK' => $ik ?? '', // Assuming template has {{IK}} or {{METODE}}
-            'METODE' => $ik ?? '', // Backup placeholder
-            'ANALIS' => $analystName ?? '',
-        ]);
-    }
-
-    /**
-     * Sign SPU by Kepala Divisi
-     * Replaces placeholder with signer name indicating approval
-     */
-    /**
-     * Generate SPU document (signed full) - replaces signed UPA version
-     * Called when Kepala Divisi signs the SPU
-     */
-    public function generateSpuSignedFull(FormPengujian $form): array
-    {
-        $form->load(['samples.sampleParameters.parameter']);
-        
-        // Find signed FULL SPU template
-        $templateId = config('services.google.spu_signed_full_template_id');
-        
-        if (!$templateId) {
-            throw new \Exception('Signed Full SPU template ID not configured');
-        }
-
-        // Copy template to SPU folder
-        $docName = $this->sanitizeFileName("SPU-{$form->form_number}");
-        // This will create a NEW file. We might want to trash the old one later if needed.
-        $result = $this->copyTemplate($templateId, $docName, $this->spuFolderId);
-
-        // Replace placeholders (Same as before, just ensuring data consistency)
-        $this->replacePlaceholders($result['id'], [
-            'NO_SPU' => $form->no_spu ?? $form->form_number,
-            'NO_TERIMA_SAMPEL' => $form->no_terima_sampel ?? '-',
-            'PERIHAL' => $this->generatePerihal($form),
-            'TANGGAL' => $form->spu_signed_at ? $form->spu_signed_at->translatedFormat('j F Y') : now()->translatedFormat('j F Y'),
-            // TTD_DIVISI is now an IMAGE in the template, so no placeholder needed or it's already there
+            'UPA_NAME' => $upaName,
+            'UPA_TANGGAL' => $upaDate,
         ]);
 
-        // Populate sample table (dynamic rows)
-        $this->populateSpuTable($result['id'], $form);
-
-        return $result;
+        if ($signatureImageUri) {
+            $this->replaceImageByAltText($documentId, '{{UPA_SIGNATURE}}', $signatureImageUri);
+        }
     }
-
-    /**
-     * Generate SP3 document (signed) - replaces unsigned version
-     * Called when Kepala Divisi approves the form (final approval)
-     */
-    public function generateSp3Signed(\App\Models\Sp3Document $sp3): array
-    {
-        // Find signed SP3 template
-        $templateId = config('services.google.sp3_signed_template_id');
-        
-        if (!$templateId) {
-            throw new \Exception('Signed SP3 template ID not configured');
-        }
-
-        // Get related data (include assignedAnalyst for ANALIS placeholder)
-        $sp3->load(['parameter', 'samples', 'form', 'assignedAnalyst']);
-        $form = $sp3->form;
-        
-        // Build samples array for table population
-        $samples = $sp3->samples->map(function($sample) {
-            return [
-                'sample_id' => $sample->id,
-                'sample_code' => $sample->sample_code,
-                'sample_name' => $sample->sample_name,
-            ];
-        })->toArray();
-
-        // Copy template to SP3 folder
-        $docName = $sp3->sp3_number;
-        $result = $this->copyTemplate($templateId, $docName, $this->sp3FolderId);
-
-        // Replace placeholders (include backups for different template naming)
-        $analystName = $sp3->assignedAnalyst ? $sp3->assignedAnalyst->full_name : '-';
-        $ikValue = $sp3->ik ?? '-';
-        
-        $this->replacePlaceholders($result['id'], [
-            'NO_SP3' => $sp3->sp3_number,
-            'PERIHAL' => $this->generatePerihal($form),
-            'NO_SPU' => $form->no_spu ?? $form->form_number,
-            'NO_SPPP' => $sp3->no_sppp ?? '-',
-            'IK' => $ikValue,
-            'METODE' => $ikValue, // Backup placeholder
-            'INSTRUKSI_KERJA' => $ikValue, // Another backup
-            'PARAMETER' => $sp3->parameter->name ?? '-',
-            'ANALIS' => $analystName,
-            'NAMA_ANALIS' => $analystName, // Backup placeholder
-            'TANGGAL' => now()->translatedFormat('j F Y'),
-        ]);
-
-        // Populate sample table with IK and Analis values for signed version
-        $this->populateSp3Table($result['id'], $samples, $sp3->parameter->name ?? '', $ikValue, $analystName);
-
-        return $result;
-    }
-
-    /**
-     * Generate SPU document with table (unsigned version)
-     */
-    public function generateSpuWithTable(FormPengujian $form): array
-    {
-        $form->load(['samples.sampleParameters.parameter']);
-        
-        // Find unsigned SPU template
-        $templateId = config('services.google.spu_unsigned_template_id');
-        
-        if (!$templateId) {
-            $templateId = $this->getTemplateIdByName('SPU-Template-Unsigned');
-        }
-        if (!$templateId) {
-            $templateId = $this->getTemplateIdByName('SPU-Template-Unsigned.docx');
-        }
-        if (!$templateId) {
-            $templateId = $this->getTemplateIdByName('SPU-001');
-        }
-        
-        if (!$templateId) {
-            throw new \Exception('SPU template not found in Google Drive');
-        }
-
-        // Copy template to SPU folder
-        $docName = $this->sanitizeFileName("SPU-{$form->form_number}");
-        $result = $this->copyTemplate($templateId, $docName, $this->spuFolderId);
-
-        // Replace simple placeholders
-        // NOTE: TANGGAL is NOT filled here - it will be filled when Kepala UPA approves
-        $this->replacePlaceholders($result['id'], [
-            'NO_SPU' => $form->no_spu ?? $form->form_number,
-            'NO_TERIMA_SAMPEL' => $form->no_terima_sampel ?? '-',
-            'PERIHAL' => $this->generatePerihal($form),
-            'TANGGAL' => '', // Will be filled on Kepala UPA approval
-        ]);
-
-        // Populate sample table
-        $this->populateSpuTable($result['id'], $form);
-
-        return $result;
-    }
-
-
 
     // Getter methods for folder IDs
-    public function getSpuFolderId(): string
-    {
-        return $this->spuFolderId;
-    }
-
     public function getSp3FolderId(): string
     {
         return $this->sp3FolderId;
+    }
+
+    public function getLhpFolderId(): string
+    {
+        return $this->lhpFolderId;
     }
 
     public function getTemplatesFolderId(): string

@@ -64,20 +64,6 @@ class NotificationService
     }
 
     /**
-     * Notify specific user about assignment
-     */
-    public function notifyAssignment($userId, FormPengujian $form, $parameterName)
-    {
-        $this->create(
-            $userId,
-            'assignment',
-            'Parameter Ditugaskan',
-            "Anda ditugaskan untuk menguji parameter {$parameterName} pada form {$form->form_number}",
-            ['form_id' => $form->id]
-        );
-    }
-
-    /**
      * Notify form completed
      */
     public function notifyFormCompleted(FormPengujian $form)
@@ -116,7 +102,7 @@ class NotificationService
         $oneDayLater = now()->addDays(1)->startOfDay();
 
         // Forms with 3 days deadline
-        $forms3Days = FormPengujian::whereNotIn('status', ['selesai', 'ditolak'])
+        $forms3Days = FormPengujian::where('status', '!=', 'selesai')
             ->whereDate('deadline_date', $threeDaysLater)
             ->get();
 
@@ -125,7 +111,7 @@ class NotificationService
         }
 
         // Forms with 1 day deadline
-        $forms1Day = FormPengujian::whereNotIn('status', ['selesai', 'ditolak'])
+        $forms1Day = FormPengujian::where('status', '!=', 'selesai')
             ->whereDate('deadline_date', $oneDayLater)
             ->get();
 
@@ -137,39 +123,33 @@ class NotificationService
     }
 
     /**
-     * Send deadline notification to relevant users
+     * Send deadline notification to relevant users.
+     * Updated for the new (shorter) state machine:
+     * dalam_pengujian -> menunggu_review_divisi -> ttd_upa -> selesai
      */
     private function notifyDeadline(FormPengujian $form, $daysLeft)
     {
         $type = $daysLeft === 1 ? 'deadline_1day' : 'deadline_3days';
         $urgency = $daysLeft === 1 ? '🚨 URGENT' : '⏰';
-        
+
         $title = "{$urgency} Deadline {$daysLeft} Hari Lagi";
         $message = "Form {$form->form_number} ({$form->customer_name}) deadline dalam {$daysLeft} hari!";
         $data = ['form_id' => $form->id];
 
-        // Notify Admin
+        // Notify Admin regardless of stage
         $this->createForRole(Role::ADMIN, $type, $title, $message, $data);
 
-        // Notify based on current status
         switch ($form->status) {
-            case 'verifikasi_upa_1':
-            case 'ttd_upa':
-                $this->createForRole(Role::KEPALA_UPA, $type, $title, $message, $data);
+            case 'dalam_pengujian':
+                // No per-parameter assignment anymore — nudge all analysts collectively,
+                // same audience that was notified when the form was created.
+                $this->createForRole(Role::ANALIS, $type, $title, $message, $data);
                 break;
-            case 'verifikasi_divisi':
-            case 'verifikasi_hasil_divisi':
+            case 'menunggu_review_divisi':
                 $this->createForRole(Role::KEPALA_DIVISI, $type, $title, $message, $data);
                 break;
-            case 'dalam_pengujian':
-                // Notify assigned analysts
-                foreach ($form->samples as $sample) {
-                    foreach ($sample->sampleParameters as $sp) {
-                        if ($sp->assigned_analyst_id && $sp->status !== 'done') {
-                            $this->create($sp->assigned_analyst_id, $type, $title, $message, $data);
-                        }
-                    }
-                }
+            case 'ttd_upa':
+                $this->createForRole(Role::KEPALA_UPA, $type, $title, $message, $data);
                 break;
         }
     }

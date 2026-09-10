@@ -28,9 +28,17 @@
 
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Nama Parameter *</label>
-                            <input type="text" name="name" value="{{ old('name', $parameter->name) }}" 
+                            <input type="text" name="name" value="{{ old('name', $parameter->name) }}"
                                    class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                                    required>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Merek/Tipe Alat</label>
+                            <input type="text" name="instrument" value="{{ old('instrument', $parameter->instrument) }}"
+                                   class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="contoh: Agilent ICP-OES 5900, Spectrophotometer UV-Vis...">
+                            <p class="text-xs text-gray-400 mt-1">Alat yang digunakan untuk parameter ini — akan muncul di LHP.</p>
                         </div>
 
                         <div class="mb-4">

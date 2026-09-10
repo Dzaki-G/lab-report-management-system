@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Detail Form {{ $form->form_number }}
+                Detail Form {{ $form->no_terima_sampel ?? '-' }}
             </h2>
             <a href="{{ route('kepala-upa.dashboard') }}" class="text-blue-600 hover:underline">← Kembali</a>
         </div>
@@ -17,15 +17,10 @@
                     <div class="flex items-center justify-between overflow-x-auto pb-2">
                         @php
                             $steps = [
-                                1 => ['status' => 'verifikasi_upa_1', 'label' => 'Ver. UPA'],
-                                2 => ['status' => 'verifikasi_divisi', 'label' => 'Ver. Divisi'],
-                                3 => ['status' => 'dalam_pengujian', 'label' => 'Pengujian'],
-                                4 => ['status' => 'verifikasi_hasil_divisi', 'label' => 'Ver. Hasil'],
-                                5 => ['status' => 'input_lhp', 'label' => 'Input LHP'],
-                                6 => ['status' => 'ttd_divisi_lhp', 'label' => 'TTD Divisi'],
-                                7 => ['status' => 'ttd_upa', 'label' => 'TTD UPA'],
-                                8 => ['status' => 'kirim_customer', 'label' => 'Kirim'],
-                                9 => ['status' => 'selesai', 'label' => 'Selesai'],
+                                1 => ['status' => 'dalam_pengujian',        'label' => 'Pengujian'],
+                                2 => ['status' => 'menunggu_review_divisi', 'label' => 'Review Divisi'],
+                                3 => ['status' => 'ttd_upa',                'label' => 'TTD UPA'],
+                                4 => ['status' => 'selesai',                'label' => 'Selesai'],
                             ];
                             $statusOrder = array_column($steps, 'status');
                             $currentIndex = array_search($form->status, $statusOrder);
@@ -46,7 +41,7 @@
                                     <span class="text-[10px] text-gray-500 mt-0.5 text-center leading-tight">{{ $verifierName }}</span>
                                 @endif
                             </div>
-                            @if($num < 9)
+                            @if($num < 4)
                                 <div class="flex-1 h-1 mx-1 min-w-4 {{ $num <= $currentIndex ? 'bg-blue-500' : 'bg-gray-200' }}"></div>
                             @endif
                         @endforeach
@@ -54,81 +49,35 @@
                 </div>
             </div>
 
-            {{-- Action Buttons (Only for Kepala UPA when status matches) --}}
-            @if(in_array($form->status, ['verifikasi_upa_1', 'ttd_upa']))
+            @if($form->status === 'ttd_upa')
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6 border-l-4 border-blue-500">
-                    <div class="p-6 flex items-center justify-between">
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Tindakan Diperlukan</h3>
-                            <p class="text-gray-600">
-                                @if($form->status == 'verifikasi_upa_1')
-                                    Form menunggu verifikasi penerimaan sampel.
-                                @else
-                                    Form menunggu tanda tangan Kepala UPA.
-                                @endif
-                            </p>
+                    <div class="p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900">Tindakan Diperlukan</h3>
+                                <p class="text-gray-600">Form menunggu tanda tangan Kepala UPA pada dokumen LHP.</p>
+                            </div>
+                            <div class="flex space-x-3">
+                                <form method="POST" action="{{ route('kepala-upa.sign-lhp', $form) }}" class="inline">
+                                    @csrf
+                                    <button type="submit"
+                                            onclick="return confirm('Apakah Anda yakin ingin menandatangani LHP ini?')"
+                                            class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium">
+                                        ✍️ Tanda Tangan LHP
+                                    </button>
+                                </form>
+                            </div>
                         </div>
-                        <div class="flex space-x-3">
-                            <button type="button" 
-                                    onclick="showRejectModal({{ $form->id }}, '{{ $form->form_number }}')"
-                                    class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-medium">
-                                ✗ Tolak
-                            </button>
-                            <form method="POST" action="{{ route('kepala-upa.approve', $form) }}" class="inline">
-                                @csrf
-                                <button type="submit" 
-                                        onclick="return confirm('Apakah Anda yakin?')"
-                                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium">
-                                    @if($form->status == 'verifikasi_upa_1')
-                                        ✓ Verifikasi
-                                    @else
-                                        ✓ Tanda Tangan Selesai
-                                    @endif
-                                </button>
-                            </form>
-                        </div>
+                        @if(!auth()->user()->signature_drive_file_id)
+                            <div class="mt-3 flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+                                <span>⚠</span>
+                                <span>Anda belum mengupload tanda tangan digital. LHP akan ditandatangani dengan nama teks saja.</span>
+                                <a href="{{ route('signature.show') }}" class="ml-auto font-medium underline hover:text-amber-900 whitespace-nowrap">Upload Sekarang</a>
+                            </div>
+                        @endif
                     </div>
                 </div>
             @endif
-
-            {{-- Reject Modal --}}
-            <div id="rejectModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-                <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Tolak Form <span id="rejectFormNumber"></span></h3>
-                    <form id="rejectForm" method="POST">
-                        @csrf
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Alasan Penolakan *</label>
-                            <textarea name="note" rows="4" required
-                                    class="w-full border-gray-300 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500"
-                                    placeholder="Masukkan alasan penolakan..."></textarea>
-                        </div>
-                        <div class="flex justify-end space-x-3">
-                            <button type="button" onclick="hideRejectModal()" 
-                                    class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
-                                Batal
-                            </button>
-                            <button type="submit" 
-                                    class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-medium">
-                                Tolak
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <script>
-                function showRejectModal(formId, formNumber) {
-                    document.getElementById('rejectFormNumber').textContent = formNumber;
-                    document.getElementById('rejectForm').action = '/kepala-upa/form/' + formId + '/reject';
-                    document.getElementById('rejectModal').classList.remove('hidden');
-                    document.getElementById('rejectModal').classList.add('flex');
-                }
-                function hideRejectModal() {
-                    document.getElementById('rejectModal').classList.add('hidden');
-                    document.getElementById('rejectModal').classList.remove('flex');
-                }
-            </script>
 
             {{-- Form Info --}}
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
@@ -137,7 +86,7 @@
                         <div>
                             <h3 class="text-lg font-semibold text-gray-700 mb-4">Informasi Form</h3>
                             <div class="grid grid-cols-2 gap-4">
-                                <div><span class="text-gray-500">No Form:</span> <strong>{{ $form->form_number }}</strong></div>
+                                <div><span class="text-gray-500">No. Terima Sampel:</span> <strong>{{ $form->no_terima_sampel ?? '-' }}</strong></div>
                                 <div><span class="text-gray-500">Customer:</span> <strong>{{ $form->customer_name }}</strong></div>
                                 <div><span class="text-gray-500">Tanggal Masuk:</span> {{ \Carbon\Carbon::parse($form->received_date)->format('d M Y') }}</div>
                                 <div><span class="text-gray-500">Deadline:</span> {{ \Carbon\Carbon::parse($form->deadline_date)->format('d M Y') }}</div>
@@ -151,24 +100,19 @@
                 </div>
             </div>
 
-            {{-- SPU Document --}}
+            {{-- LHP Document --}}
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6">
-                    <h3 class="text-lg font-semibold text-gray-700 mb-4">Dokumen SPU</h3>
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">Dokumen LHP</h3>
                     <div class="flex items-center space-x-4">
-                         @if($form->spu_signed_doc_id)
-                            <a href="https://docs.google.com/document/d/{{ $form->spu_signed_doc_id }}/edit" target="_blank"
+                        @if($form->lhp_google_file_id)
+                            <a href="https://docs.google.com/document/d/{{ $form->lhp_google_file_id }}/edit" target="_blank"
                                class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md">
-                                📄 Lihat SPU (Signed)
+                                📄 Lihat Dokumen LHP
                             </a>
-                        @elseif($form->spu_unsigned_doc_id)
-                            <a href="https://docs.google.com/document/d/{{ $form->spu_unsigned_doc_id }}/edit" target="_blank"
-                               class="inline-flex items-center px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-md">
-                                📄 Lihat SPU (Unsigned)
-                            </a>
-                            <p class="text-sm text-gray-500 ml-2">Harap periksa dokumen ini sebelum melakukan verifikasi/tanda tangan.</p>
+                            <p class="text-sm text-gray-500">Harap periksa dokumen ini sebelum menandatangani.</p>
                         @else
-                            <p class="text-gray-500 italic">Dokumen belum tersedia.</p>
+                            <p class="text-gray-500 italic">Dokumen LHP belum tersedia.</p>
                         @endif
                     </div>
                 </div>
@@ -212,7 +156,7 @@
                                                 {{ $sp->analysisResult->result_value ?? '-' }}
                                             </td>
                                             <td class="px-3 py-2 text-gray-600">
-                                                {{ $sp->assignedAnalyst->full_name ?? '-' }}
+                                                {{ $sp->filledByAnalyst->full_name ?? '-' }}
                                             </td>
                                         </tr>
                                     @endforeach
@@ -221,6 +165,8 @@
                         </div>
                     @endforeach
                 </div>
+            </div>
+
             {{-- Log Verifikasi --}}
             @if($form->verifications->isNotEmpty())
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mt-6">

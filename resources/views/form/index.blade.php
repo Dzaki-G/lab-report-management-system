@@ -70,7 +70,7 @@
                         <div>
                             <label class="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Cari</label>
                             <input type="text" name="search" value="{{ request('search') }}" 
-                                   placeholder="No. Form / Customer"
+                                   placeholder="No. Terima / No. LHP / Customer"
                                    class="w-full border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm font-medium bg-gray-50 hover:bg-white focus:bg-white">
                         </div>
 
@@ -81,7 +81,6 @@
                                 <option value="">Semua Status</option>
                                 <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Aktif (Belum Selesai)</option>
                                 <option value="selesai" {{ request('status') == 'selesai' ? 'selected' : '' }}>Selesai</option>
-                                <option value="ditolak" {{ request('status') == 'ditolak' ? 'selected' : '' }}>Ditolak</option>
                             </select>
                         </div>
 
@@ -102,7 +101,7 @@
                             <select name="sort" class="w-full border-gray-300 rounded-md shadow-sm text-sm">
                                 <option value="deadline_date" {{ request('sort') == 'deadline_date' ? 'selected' : '' }}>Deadline</option>
                                 <option value="received_date" {{ request('sort') == 'received_date' ? 'selected' : '' }}>Tanggal Masuk</option>
-                                <option value="form_number" {{ request('sort') == 'form_number' ? 'selected' : '' }}>No. Form</option>
+                                <option value="no_terima_sampel" {{ request('sort') == 'no_terima_sampel' ? 'selected' : '' }}>No. Terima Sampel</option>
                                 <option value="customer_name" {{ request('sort') == 'customer_name' ? 'selected' : '' }}>Customer</option>
                             </select>
                         </div>
@@ -166,7 +165,7 @@
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50/80 border-b border-gray-200">
                                 <tr>
-                                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">No. Form</th>
+                                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">No. Terima Sampel</th>
                                     <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Customer</th>
                                     <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Masuk</th>
                                     <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Deadline</th>
@@ -184,24 +183,21 @@
                                         $daysLeft = $today->diffInDays($deadline, false);
                                         $isOverdue = $daysLeft < 0;
                                         $isUrgent = $daysLeft >= 0 && $daysLeft <= 3;
-                                        $isCompleted = in_array($form->status, ['selesai', 'ditolak']);
-                                        
+                                        $isCompleted = $form->status === 'selesai';
+
                                         $statusColors = [
-                                            'draft' => 'bg-gray-100 text-gray-800',
-                                            'verifikasi_upa_1' => 'bg-yellow-100 text-yellow-800',
-                                            'verifikasi_divisi' => 'bg-purple-100 text-purple-800',
-                                            'dalam_pengujian' => 'bg-blue-100 text-blue-800',
-                                            'verifikasi_hasil_divisi' => 'bg-indigo-100 text-indigo-800',
-                                            'input_lhp' => 'bg-pink-100 text-pink-800',
-                                            'ttd_upa' => 'bg-orange-100 text-orange-800',
-                                            'kirim_customer' => 'bg-teal-100 text-teal-800',
-                                            'selesai' => 'bg-green-100 text-green-800',
-                                            'ditolak' => 'bg-red-100 text-red-800',
+                                            'dalam_pengujian'        => 'bg-blue-100 text-blue-800',
+                                            'menunggu_review_divisi' => 'bg-indigo-100 text-indigo-800',
+                                            'ttd_upa'                => 'bg-orange-100 text-orange-800',
+                                            'selesai'                => 'bg-green-100 text-green-800',
                                         ];
                                     @endphp
                                     <tr class="hover:bg-indigo-50/30 transition-colors duration-150 group">
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <span class="font-semibold text-gray-900">{{ $form->form_number }}</span>
+                                            <span class="font-semibold text-gray-900">{{ $form->no_terima_sampel ?? '-' }}</span>
+                                            @if($form->lhp_number)
+                                                <p class="text-xs text-gray-400 font-mono">{{ $form->lhp_number }}</p>
+                                            @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-gray-700 font-medium">
                                             {{ $form->customer_name }}
@@ -249,22 +245,17 @@
                                             </a>
                                             <form method="POST" action="{{ route('form.destroy', $form) }}" 
                                                   class="inline"
-                                                  onsubmit="return confirm('⚠️ Hapus Form {{ $form->form_number }}?\n\nSemua data dan dokumen Google Drive (SPU, SP3, LHP) akan dihapus permanen.\n\nYakin?')">
+                                                  onsubmit="return confirm('⚠️ Hapus form {{ $form->no_terima_sampel ?? $form->form_number }}?\n\nSemua data dan dokumen Google Drive (SP3, LHP) akan dihapus permanen.\n\nYakin?')">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-sm transition-colors">
                                                     🗑️ Hapus
                                                 </button>
                                             </form>
-                                            @if($form->spu_signed_doc_id)
-                                                <a href="https://docs.google.com/document/d/{{ $form->spu_signed_doc_id }}/edit" target="_blank" 
-                                                   class="text-emerald-500 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 p-1.5 rounded-lg transition-colors" title="SPU Signed">
+                                            @if($form->lhp_google_file_id)
+                                                <a href="https://docs.google.com/document/d/{{ $form->lhp_google_file_id }}/edit" target="_blank"
+                                                   class="text-emerald-500 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 p-1.5 rounded-lg transition-colors" title="Lihat LHP">
                                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                                </a>
-                                            @elseif($form->spu_unsigned_doc_id)
-                                                <a href="https://docs.google.com/document/d/{{ $form->spu_unsigned_doc_id }}/edit" target="_blank" 
-                                                   class="text-amber-500 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 p-1.5 rounded-lg transition-colors" title="SPU Unsigned">
-                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
                                                 </a>
                                             @endif
                                         </td>

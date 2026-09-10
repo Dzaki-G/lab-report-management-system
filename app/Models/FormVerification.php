@@ -31,31 +31,43 @@ class FormVerification extends Model
     public function getActionLabelAttribute()
     {
         return match($this->action) {
-            'submit' => 'Form disubmit',
-            'approve' => 'Disetujui',
-            'reject' => 'Ditolak',
-            'input_hasil' => 'Input hasil pengujian',
-            default => ucfirst($this->action),
+            'buat_form'        => 'Form dibuat',
+            'submit'           => 'Form disubmit',
+            'approve'          => 'Disetujui',
+            'reject'           => 'Ditolak',
+            'selesai_pengujian' => 'Semua pengujian selesai',
+            'sp3_approve'      => 'SP3 disetujui',
+            'sp3_reject'       => 'SP3 ditolak',
+            'sp3_resubmit'     => 'SP3 diperbaiki dan dikirim ulang',
+            'sign_lhp'         => 'LHP ditandatangani',
+            default => ucfirst(str_replace('_', ' ', $this->action)),
         };
     }
 
     /**
-     * Get human-readable status label
+     * Get human-readable status label.
+     * New (shorter) state machine: dalam_pengujian -> menunggu_review_divisi -> ttd_upa -> selesai
+     * Old status strings kept in the match as a fallback in case any historical
+     * FormVerification rows still reference them — safe to remove once old data is gone.
      */
     public static function getStatusLabel($status)
     {
         return match($status) {
+            'dalam_pengujian' => 'Dalam Pengujian',
+            'menunggu_review_divisi' => 'Menunggu Review Kepala Divisi',
+            'ttd_upa' => 'Menunggu TTD Kepala UPA (LHP)',
+            'selesai' => 'Selesai',
+
+            // Legacy statuses — historical records only, no longer reachable going forward
             'draft' => 'Draft',
             'verifikasi_upa_1' => 'Menunggu Verifikasi Kepala UPA',
             'verifikasi_divisi' => 'Menunggu Verifikasi Kepala Divisi',
-            'dalam_pengujian' => 'Dalam Pengujian',
             'verifikasi_hasil_divisi' => 'Menunggu Verifikasi Hasil - Kepala Divisi',
             'input_lhp' => 'Input LHP oleh Admin',
             'ttd_divisi_lhp' => 'Menunggu TTD Kepala Divisi (LHP)',
-            'ttd_upa' => 'Menunggu TTD Kepala UPA (LHP)',
             'kirim_customer' => 'Menunggu Pengiriman ke Customer',
-            'selesai' => 'Selesai',
             'ditolak' => 'Ditolak',
+
             default => ucfirst(str_replace('_', ' ', $status)),
         };
     }

@@ -6,35 +6,45 @@ use Illuminate\Database\Eloquent\Model;
 
 class Sp3Document extends Model
 {
+    const STATUS_PENDING = 'pending';
+    const STATUS_REJECTED = 'rejected';
+    const STATUS_RESUBMITTED = 'resubmitted';
+    const STATUS_APPROVED = 'approved';
+
+    protected $attributes = [
+        'review_status' => self::STATUS_PENDING,
+    ];
+
     protected $fillable = [
         'form_pengujian_id',
         'parameter_id',
         'sp3_number',
-        'google_doc_id',
-        'google_doc_url',
         'no_sppp',
         'ik',
-        'assigned_analyst_id',
+        'google_doc_id',
+        'google_doc_url',
         'status',
-        'signed_at',
+        // Review / rejection tracking (per-SP3, replaces old needs_revision/revision_note)
+        'review_status', // pending | rejected | resubmitted | approved
+        'rejection_note',
+        'rejected_at',
+        'rejected_by',
+        // LCP — optional, non-blocking, addable any time
         'lcp_google_file_id',
         'lcp_google_file_url',
         'lcp_uploaded_at',
-        'needs_revision',
-        'revision_note',
     ];
 
     protected $casts = [
-        'signed_at' => 'datetime',
         'lcp_uploaded_at' => 'datetime',
-        'needs_revision' => 'boolean',
+        'rejected_at' => 'datetime',
     ];
 
     public function formPengujian()
     {
         return $this->belongsTo(FormPengujian::class, 'form_pengujian_id');
     }
-    
+
     // Alias for easier access
     public function form()
     {
@@ -46,9 +56,9 @@ class Sp3Document extends Model
         return $this->belongsTo(Parameter::class);
     }
 
-    public function assignedAnalyst()
+    public function rejectedByUser()
     {
-        return $this->belongsTo(User::class, 'assigned_analyst_id', 'user_id');
+        return $this->belongsTo(User::class, 'rejected_by', 'user_id');
     }
 
     public function sp3Samples()
@@ -64,6 +74,57 @@ class Sp3Document extends Model
     }
 
     /**
+     * Check if every sample_parameter under this SP3 has a result entered.
+     * This is what makes an SP3 eligible for Divisi's review.
+     */
+    public function allResultsFilled(): bool
+    {
+        $sampleIds = $this->samples()->pluck('samples.id');
+
+        return SampleParameter::whereIn('sample_id', $sampleIds)
+            ->where('parameter_id', $this->parameter_id)
+            ->where('status', '!=', 'done')
+            ->doesntExist();
+    }
+
+    /**
+     * Reject this SP3 with a note. Notifies whichever analyst(s) filled results in it.
+     */
+    public function markRejected(string $note, int $rejectedByUserId): void
+    {
+        $this->update([
+            'review_status' => self::STATUS_REJECTED,
+            'rejection_note' => $note,
+            'rejected_at' => now(),
+            'rejected_by' => $rejectedByUserId,
+        ]);
+    }
+
+    /**
+     * Mark this SP3 as resubmitted — called automatically the instant an analyst
+     * edits a result on an SP3 that was previously rejected.
+     */
+    public function markResubmitted(): void
+    {
+        if ($this->review_status === self::STATUS_REJECTED) {
+            $this->update(['review_status' => self::STATUS_RESUBMITTED]);
+        }
+    }
+
+    /**
+     * Approve this SP3 — clears the rejection note per the confirmed lightweight approach.
+     */
+    public function markApproved(): void
+    {
+        $this->update([
+            'review_status' => self::STATUS_APPROVED,
+            'rejection_note' => null,
+            'rejected_at' => null,
+            'rejected_by' => null,
+        ]);
+    }
+
+    /**
      * Generate next SP3 number
      */
     public static function generateNextNumber(): string
@@ -72,11 +133,23 @@ class Sp3Document extends Model
         if (!$lastDoc) {
             return 'SP3-001';
         }
-        
-        // Extract number from SP3-XXX
+
         preg_match('/SP3-(\d+)/', $lastDoc->sp3_number, $matches);
         $nextNumber = isset($matches[1]) ? intval($matches[1]) + 1 : 1;
-        
+
         return 'SP3-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+    }
+
+    public static function generateNextSpppSeq(): int
+    {
+        $month   = now()->format('m');
+        $year    = now()->format('Y');
+        $pattern = "%/SPPP/NK/{$month}/{$year}";
+        return self::where('no_sppp', 'like', $pattern)->count() + 1;
+    }
+
+    public static function spppSuffix(): string
+    {
+        return '/SPPP/NK/' . now()->format('m') . '/' . now()->format('Y');
     }
 }

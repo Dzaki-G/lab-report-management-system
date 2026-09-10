@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Detail Form: {{ $form->form_number }}
+                Detail Form: {{ $form->no_terima_sampel ?? '-' }}
             </h2>
             <a href="{{ route('form-list.index') }}" class="text-blue-600 hover:underline">← Kembali ke Daftar</a>
         </div>
@@ -21,7 +21,7 @@
                         <div>
                             <p class="text-sm text-gray-500">No. Form / SPU</p>
                             <p class="font-medium text-gray-900">
-                                {{ $form->form_number }}
+                                {{ $form->no_terima_sampel ?? '-' }}
                                 @if($form->no_spu)
                                     <span class="text-indigo-600 ml-2">({{ $form->no_spu }})</span>
                                 @endif
@@ -89,7 +89,7 @@
                         </div>
                         <div>
                             <p class="text-sm text-gray-500">Analis</p>
-                            <p class="font-medium text-gray-900">{{ $form->assignedAnalyst->full_name ?? 'Belum ditugaskan' }}</p>
+                            <p class="font-medium text-gray-900">{{ $form->samples->flatMap->sampleParameters->pluck('filledByAnalyst')->filter()->unique('user_id')->pluck('full_name')->implode(', ') ?: 'Belum diisi' }}</p>
                         </div>
                         <div class="md:col-span-2">
                             <p class="text-sm text-gray-500">Status</p>

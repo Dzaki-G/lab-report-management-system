@@ -8,6 +8,7 @@ class Parameter extends Model
 {
     protected $fillable = [
         'name',
+        'instrument',
         'category',
         'default_method',
         'default_unit',

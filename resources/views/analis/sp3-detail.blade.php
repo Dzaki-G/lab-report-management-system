@@ -48,8 +48,8 @@
                         <span class="font-medium ml-2">{{ $sp3->ik ?? '-' }}</span>
                     </div>
                     <div>
-                        <span class="text-gray-500">Form:</span>
-                        <span class="font-medium ml-2">{{ $sp3->form->form_number ?? '-' }}</span>
+                        <span class="text-gray-500">No. Terima Sampel:</span>
+                        <span class="font-medium ml-2">{{ $sp3->form->no_terima_sampel ?? '-' }}</span>
                     </div>
                     <div>
                         <span class="text-gray-500">Status:</span>

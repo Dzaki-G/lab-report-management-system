@@ -10,6 +10,8 @@ class AnalysisResult extends Model
         'sample_parameter_id',
         'result_value',
         'result_unit',
+        'instrument',
+        'method',
         'analyst_id',
         'analysis_date',
         'notes',

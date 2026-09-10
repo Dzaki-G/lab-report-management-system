@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Sp3Document;
 
 class FormPengujian extends Model
 {
@@ -10,46 +11,32 @@ class FormPengujian extends Model
 
     protected $fillable = [
         'form_number',
-        'no_spu',
+        'lhp_number',
         'no_terima_sampel',
         'received_date',
         'deadline_date',
         'status',
         'customer_name',
         'customer_phone',
+        'customer_address',
         'customer_institution',
         'customer_position',
         'admin_id',
-        'assigned_analyst_id',
-        // SPU document tracking
-        'google_doc_id',
-        'spu_generated_at',
-        'spu_file_path',
-        'spu_unsigned_doc_id',
-        'spu_unsigned_doc_url',
-        'spu_signed_doc_id',
-        'spu_signed_doc_url',
-        'spu_signed_at',
-        'spu_signed_divisi_at',
-        // LCP/LHP tracking
-        'lcp_link',
-        'lhp_link',
+        'sample_type',
+        'sample_matrix',
+        'sample_name_label',
+        'sample_form',
+        'sample_packing',
+        'sample_count',
+        'contact_person',
+        // LHP tracking
         'lhp_google_file_id',
-        'lhp_google_file_url',
         'lhp_uploaded_at',
         'lhp_signed_divisi_at',
         'lhp_signed_upa_at',
-        // Rejection
-        'rejection_note',
-        'rejected_by',
-        'rejected_at',
     ];
 
     protected $casts = [
-        'rejected_at' => 'datetime',
-        'spu_generated_at' => 'datetime',
-        'spu_signed_at' => 'datetime',
-        'spu_signed_divisi_at' => 'datetime',
         'lhp_uploaded_at' => 'datetime',
         'lhp_signed_divisi_at' => 'datetime',
         'lhp_signed_upa_at' => 'datetime',
@@ -58,11 +45,6 @@ class FormPengujian extends Model
     public function admin()
     {
         return $this->belongsTo(User::class, 'admin_id', 'user_id');
-    }
-
-    public function assignedAnalyst()
-    {
-        return $this->belongsTo(User::class, 'assigned_analyst_id', 'user_id');
     }
 
     public function samples()
@@ -80,11 +62,6 @@ class FormPengujian extends Model
         return $this->hasMany(Sp3Document::class, 'form_pengujian_id');
     }
 
-    public function rejectedByUser()
-    {
-        return $this->belongsTo(User::class, 'rejected_by', 'user_id');
-    }
-
     /**
      * Get human-readable status label
      */
@@ -94,27 +71,22 @@ class FormPengujian extends Model
     }
 
     /**
-     * Get status step number (1-9)
+     * Get status step number
+     * New, shorter state machine: dalam_pengujian -> menunggu_review_divisi -> ttd_upa -> selesai
      */
     public function getStatusStepAttribute()
     {
         return match($this->status) {
-            'draft' => 1,
-            'verifikasi_upa_1' => 2,
-            'verifikasi_divisi' => 3,
-            'dalam_pengujian' => 4,
-            'verifikasi_hasil_divisi' => 5,
-            'input_lhp' => 6,
-            'ttd_divisi_lhp' => 7,
-            'ttd_upa' => 8,
-            'kirim_customer' => 9,
-            'selesai' => 10,
+            'dalam_pengujian' => 1,
+            'menunggu_review_divisi' => 2,
+            'ttd_upa' => 3,
+            'selesai' => 4,
             default => 0,
         };
     }
 
     /**
-     * Check if all samples have completed analysis
+     * Check if all samples have completed analysis (all sample_parameters marked 'done')
      */
     public function allSamplesAnalyzed()
     {
@@ -129,20 +101,51 @@ class FormPengujian extends Model
     }
 
     /**
-     * Get the name of the user who verified/completed a specific step
-     * Now returns static role names as requested
+     * Check if every SP3 belonging to this form has been approved by Kepala Divisi.
+     * This is the trigger condition for generating the LHP document.
+     */
+    public function allSp3Approved()
+    {
+        return $this->sp3Documents->isNotEmpty()
+            && $this->sp3Documents->every(fn ($sp3) => $sp3->review_status === Sp3Document::STATUS_APPROVED);
+    }
+
+    /**
+     * Auto-generate an LHP number in the format {seq}/LHP/NK/{month}/{year}.
+     * Counts existing LHP numbers in the same month/year to determine the sequence.
+     */
+    public static function generateFormNumber(): string
+    {
+        $month = now()->format('m');
+        $year  = now()->format('Y');
+        $pattern = "%/NK/{$month}/{$year}";
+        $count = self::where('form_number', 'like', $pattern)->count();
+        $seq   = str_pad($count + 1, 3, '0', STR_PAD_LEFT);
+        return "{$seq}/NK/{$month}/{$year}";
+    }
+
+    public static function generateLhpNumber(): string
+    {
+        $month = now()->format('m');
+        $year  = now()->format('Y');
+        $pattern = "%/LHP/NK/{$month}/{$year}";
+
+        $count = self::where('lhp_number', 'like', $pattern)->count();
+        $seq   = str_pad($count + 1, 3, '0', STR_PAD_LEFT);
+
+        return "{$seq}/LHP/NK/{$month}/{$year}";
+    }
+
+    /**
+     * Get the name of the role responsible for a given step in the new workflow
      */
     public function getVerifierName($stepStatus)
     {
         return match($stepStatus) {
-            'verifikasi_upa_1' => 'Kepala UPA',
-            'verifikasi_divisi' => 'Kepala Divisi',
-            'dalam_pengujian' => 'Analis', 
-            'verifikasi_hasil_divisi' => 'Kepala Divisi',
-            'input_lhp' => 'Admin',
-            'ttd_divisi_lhp' => 'Kepala Divisi',
+            'dalam_pengujian' => 'Analis',
+            'menunggu_review_divisi' => 'Kepala Divisi',
             'ttd_upa' => 'Kepala UPA',
-            'kirim_customer' => 'Admin',
+            'selesai' => 'Admin',
             default => null,
         };
     }

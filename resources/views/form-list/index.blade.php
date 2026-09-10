@@ -62,7 +62,6 @@
                                 <option value="">Semua Status</option>
                                 <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Aktif (Belum Selesai)</option>
                                 <option value="selesai" {{ request('status') == 'selesai' ? 'selected' : '' }}>Selesai</option>
-                                <option value="ditolak" {{ request('status') == 'ditolak' ? 'selected' : '' }}>Ditolak</option>
                             </select>
                         </div>
 
@@ -83,7 +82,7 @@
                             <select name="sort" class="w-full border-gray-300 rounded-md shadow-sm text-sm">
                                 <option value="deadline_date" {{ request('sort') == 'deadline_date' ? 'selected' : '' }}>Deadline</option>
                                 <option value="received_date" {{ request('sort') == 'received_date' ? 'selected' : '' }}>Tanggal Masuk</option>
-                                <option value="form_number" {{ request('sort') == 'form_number' ? 'selected' : '' }}>No. Form</option>
+                                <option value="no_terima_sampel" {{ request('sort') == 'no_terima_sampel' ? 'selected' : '' }}>No. Terima Sampel</option>
                                 <option value="customer_name" {{ request('sort') == 'customer_name' ? 'selected' : '' }}>Customer</option>
                             </select>
                         </div>
@@ -177,7 +176,7 @@
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50/80 border-b border-gray-200">
                                 <tr>
-                                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">No. Form</th>
+                                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">No. Terima Sampel</th>
                                     <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Customer</th>
                                     <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Masuk</th>
                                     <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Deadline</th>
@@ -195,26 +194,20 @@
                                         $daysLeft = $today->diffInDays($deadline, false);
                                         $isOverdue = $daysLeft < 0;
                                         $isUrgent = $daysLeft >= 0 && $daysLeft <= 3;
-                                        $isCompleted = in_array($form->status, ['selesai', 'ditolak']);
-                                        
+                                        $isCompleted = $form->status === 'selesai';
+
                                         $statusColors = [
-                                            'verifikasi_upa_1' => 'bg-yellow-100 text-yellow-800',
-                                            'verifikasi_divisi' => 'bg-purple-100 text-purple-800',
-                                            'dalam_pengujian' => 'bg-blue-100 text-blue-800',
-                                            'verifikasi_hasil_divisi' => 'bg-indigo-100 text-indigo-800',
-                                            'input_lhp' => 'bg-pink-100 text-pink-800',
-                                            'ttd_divisi_lhp' => 'bg-amber-100 text-amber-800',
-                                            'ttd_upa' => 'bg-orange-100 text-orange-800',
-                                            'kirim_customer' => 'bg-teal-100 text-teal-800',
-                                            'selesai' => 'bg-green-100 text-green-800',
-                                            'ditolak' => 'bg-red-100 text-red-800',
+                                            'dalam_pengujian'        => 'bg-blue-100 text-blue-800',
+                                            'menunggu_review_divisi' => 'bg-indigo-100 text-indigo-800',
+                                            'ttd_upa'                => 'bg-orange-100 text-orange-800',
+                                            'selesai'                => 'bg-green-100 text-green-800',
                                         ];
                                     @endphp
                                     <tr class="hover:bg-indigo-50/30 transition-colors duration-150 group">
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="font-semibold text-gray-900">{{ $form->form_number }}</div>
-                                            @if($form->no_spu)
-                                                <div class="text-xs text-indigo-600 mt-1 font-medium">{{ $form->no_spu }}</div>
+                                            <div class="font-semibold text-gray-900">{{ $form->no_terima_sampel ?? '-' }}</div>
+                                            @if($form->lhp_number)
+                                                <div class="text-xs text-indigo-600 mt-1 font-mono">{{ $form->lhp_number }}</div>
                                             @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-gray-700 font-medium">

@@ -10,7 +10,7 @@ class Sample extends Model
         'form_pengujian_id',
         'sample_code',
         'sample_name',
-        'notes', // Renamed from description
+        'notes',
     ];
 
     public function form()
@@ -26,7 +26,7 @@ class Sample extends Model
     public function parameters()
     {
         return $this->belongsToMany(Parameter::class, 'sample_parameters')
-                    ->withPivot('method', 'status', 'assigned_analyst_id')
+                    ->withPivot('method', 'status', 'filled_by_analyst_id')
                     ->withTimestamps();
     }
 }
