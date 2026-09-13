@@ -70,10 +70,26 @@
                                         </form>
                                     @else
                                         @if(isset($notif->data['form_id']))
-                                            <a href="{{ route('form-list.show', $notif->data['form_id']) }}" 
-                                               class="text-xs text-gray-400 hover:text-indigo-600 hover:underline font-medium">
-                                                Lihat Form →
-                                            </a>
+                                            @php
+                                                $notifRole = auth()->user()->role_id;
+                                                $notifFormId = $notif->data['form_id'];
+                                                $notifForm = \App\Models\FormPengujian::find($notifFormId);
+                                            @endphp
+                                            @if($notifForm)
+                                                @if($notifRole == \App\Enums\Role::KEPALA_DIVISI)
+                                                    <a href="{{ route('kepala-divisi.show', $notifForm) }}"
+                                                       class="text-xs text-gray-400 hover:text-indigo-600 hover:underline font-medium">Lihat Form →</a>
+                                                @elseif($notifRole == \App\Enums\Role::KEPALA_UPA)
+                                                    <a href="{{ route('kepala-upa.show', $notifForm) }}"
+                                                       class="text-xs text-gray-400 hover:text-indigo-600 hover:underline font-medium">Lihat Form →</a>
+                                                @elseif($notifRole == \App\Enums\Role::ANALIS)
+                                                    <a href="{{ route('analis.form.show', $notifFormId) }}"
+                                                       class="text-xs text-gray-400 hover:text-indigo-600 hover:underline font-medium">Lihat Form →</a>
+                                                @else
+                                                    <a href="{{ route('form-list.show', $notifFormId) }}"
+                                                       class="text-xs text-gray-400 hover:text-indigo-600 hover:underline font-medium">Lihat Form →</a>
+                                                @endif
+                                            @endif
                                         @endif
                                     @endif
 

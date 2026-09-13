@@ -22,7 +22,7 @@ class KepalaUpaController extends Controller
             ->get();
 
         $recentlySigned = FormPengujian::with('admin')
-            ->where('status', 'selesai')
+            ->whereIn('status', ['kirim_customer', 'selesai'])
             ->whereHas('verifications', function ($q) {
                 $q->where('verified_by', auth()->user()->user_id)
                   ->where('action', 'sign_lhp');
@@ -85,14 +85,14 @@ class KepalaUpaController extends Controller
 
         $form->update([
             'lhp_signed_upa_at' => now(),
-            'status' => 'selesai',
+            'status' => 'kirim_customer',
         ]);
 
         FormVerification::create([
             'form_pengujian_id' => $form->id,
             'action' => 'sign_lhp',
             'from_status' => 'ttd_upa',
-            'to_status' => 'selesai',
+            'to_status' => 'kirim_customer',
             'verified_by' => auth()->user()->user_id,
         ]);
 
@@ -100,6 +100,6 @@ class KepalaUpaController extends Controller
         $notificationService->notifyFormCompleted($form);
 
         return redirect()->route('kepala-upa.dashboard')
-            ->with('success', 'LHP berhasil ditandatangani. Form selesai.');
+            ->with('success', 'LHP berhasil ditandatangani. Admin akan mengirimkan LHP ke customer.');
     }
 }

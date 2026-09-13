@@ -386,7 +386,11 @@ class GoogleDocsService
                     // Collect non-empty (colIndex, text) pairs for this row
                     $colsToInsert = [];
                     for ($colIndex = 0; $colIndex < count($rowData); $colIndex++) {
-                        $textToInsert = str_replace(["\r\n", "\r", "\n"], ' ', (string) ($rowData[$colIndex] ?? ''));
+                        $textToInsert = (string) ($rowData[$colIndex] ?? '');
+                        // Strip newlines from all columns EXCEPT column 1 (Sample Name/Code)
+                        if ($colIndex !== 1) {
+                            $textToInsert = str_replace(["\r\n", "\r", "\n"], ' ', $textToInsert);
+                        }
                         if ($textToInsert !== '') {
                             $colsToInsert[] = ['col' => $colIndex, 'text' => $textToInsert];
                         }
@@ -627,21 +631,18 @@ class GoogleDocsService
             $form->refresh();
         }
 
-        // Derive TANGGAL_ANALISIS from min/max analysis dates
-        $analysisDates = collect();
-        foreach ($form->samples as $sample) {
-            foreach ($sample->sampleParameters as $sp) {
-                if ($sp->analysisResult?->analysis_date) {
-                    $analysisDates->push(\Carbon\Carbon::parse($sp->analysisResult->analysis_date));
-                }
-            }
-        }
-        if ($analysisDates->isNotEmpty()) {
-            $minDate = $analysisDates->min()->translatedFormat('j F Y');
-            $maxDate = $analysisDates->max()->translatedFormat('j F Y');
-            $tanggalAnalisis = ($minDate === $maxDate) ? $minDate : "{$minDate} - {$maxDate}";
-        } else {
-            $tanggalAnalisis = '-';
+        // Derive TANGGAL_ANALISIS as range from received_date to LHP generation date
+        $tanggalAnalisis = '-';
+        if ($form->received_date) {
+            $receivedDate = \Carbon\Carbon::parse($form->received_date);
+            $lhpDate = now();
+
+            $receivedFormatted = $receivedDate->translatedFormat('j F Y');
+            $lhpFormatted = $lhpDate->translatedFormat('j F Y');
+
+            $tanggalAnalisis = ($receivedFormatted === $lhpFormatted)
+                ? $receivedFormatted
+                : "{$receivedFormatted} - {$lhpFormatted}";
         }
 
         // Collect unique instruments from analysis results (analyst-entered), fall back to parameter default
@@ -668,7 +669,7 @@ class GoogleDocsService
             'CUSTOMER_POSITION'  => $form->customer_position ?? '-',
             'CUSTOMER_PHONE'     => $form->customer_phone ?? '-',
             'CONTACT_PERSON'     => $form->contact_person ?? '-',
-            'RECEIVED_DATE'      => optional($form->received_date)->translatedFormat('j F Y') ?? '-',
+            'RECEIVED_DATE'      => $form->received_date ? \Carbon\Carbon::parse($form->received_date)->translatedFormat('j F Y') : '-',
             'TANGGAL_ANALISIS'   => $tanggalAnalisis,
             'PERIHAL'            => $this->generatePerihal($form),
             'TANGGAL'            => now()->translatedFormat('j F Y'),
@@ -707,7 +708,7 @@ class GoogleDocsService
 
         foreach ($form->samples as $sample) {
             $isFirstInGroup = true;
-            $sampleLabel = $sample->sample_name . ' / ' . $sample->sample_code;
+            $sampleLabel = $sample->sample_code . "\n" . $sample->sample_name;
             $groupStartRow = $currentRow;
             $rowsInGroup = 0;
 
@@ -724,7 +725,7 @@ class GoogleDocsService
                 // 6-cell structure (after merging sample column in template):
                 // No | Sample (merged) | Parameter | Unit | Results | Method
                 $tableData[] = [
-                    $isFirstInGroup ? $no : '',
+                    $isFirstInGroup ? $no . '.' : '',
                     $isFirstInGroup ? $sampleLabel : '',
                     $sp->parameter->name,
                     $unit,
@@ -754,6 +755,12 @@ class GoogleDocsService
         // Now merge cells for each sample group using the correct table
         if (!empty($sampleGroups) && $tableStartIndex !== null) {
             $this->mergeLhpTableCells($documentId, $sampleGroups, $tableStartIndex);
+        }
+
+        // Apply tight padding to Parameter/Unit/Results/Method columns
+        if ($tableStartIndex !== null) {
+            $this->applyTightCellPadding($documentId, $tableStartIndex, count($tableData));
+            $this->applyMinimumRowHeight($documentId, $tableStartIndex, count($tableData));
         }
     }
 
@@ -842,6 +849,88 @@ class GoogleDocsService
             Log::error("Failed to merge LHP table cells: " . $e->getMessage());
             Log::error($e->getTraceAsString());
             // Non-fatal - table is already populated, just not merged
+        }
+    }
+
+    /**
+     * Apply tight vertical padding to Parameter/Unit/Results/Method columns.
+     * Reduces top/bottom cell padding to make rows more compact.
+     */
+    private function applyTightCellPadding(string $documentId, int $tableStartIndex, int $dataRowCount): void
+    {
+        try {
+            $requests = [];
+            $dataStartRow = 2; // After 2 header rows
+            $columnsToTighten = [2, 3, 4, 5]; // Parameter, Unit, Results, Method
+            $paddingPt = 2; // 2 points of padding (very tight)
+
+            for ($rowIdx = $dataStartRow; $rowIdx < $dataStartRow + $dataRowCount; $rowIdx++) {
+                foreach ($columnsToTighten as $colIdx) {
+                    $requests[] = new Docs\Request([
+                        'updateTableCellStyle' => [
+                            'tableCellStyle' => [
+                                'paddingTop' => ['magnitude' => $paddingPt, 'unit' => 'PT'],
+                                'paddingBottom' => ['magnitude' => $paddingPt, 'unit' => 'PT'],
+                            ],
+                            'fields' => 'paddingTop,paddingBottom',
+                            'tableCellLocation' => [
+                                'tableStartLocation' => ['index' => $tableStartIndex],
+                                'rowIndex' => $rowIdx,
+                                'columnIndex' => $colIdx,
+                            ],
+                        ],
+                    ]);
+                }
+            }
+
+            if (!empty($requests)) {
+                $this->docsService->documents->batchUpdate(
+                    $documentId,
+                    new Docs\BatchUpdateDocumentRequest(['requests' => $requests])
+                );
+                Log::info("Applied tight padding to " . count($requests) . " cells");
+            }
+        } catch (\Exception $e) {
+            Log::error("Failed to apply tight cell padding: " . $e->getMessage());
+            // Non-fatal - table is already populated and merged
+        }
+    }
+
+    /**
+     * Set minimum row height for data rows.
+     * Makes the table more compact by reducing row height.
+     * 0.1 cm ≈ 2.83 PT, using 3 PT for minimal height.
+     */
+    private function applyMinimumRowHeight(string $documentId, int $tableStartIndex, int $dataRowCount): void
+    {
+        try {
+            $requests = [];
+            $dataStartRow = 2; // After 2 header rows
+            $minHeightPt = 3; // 3 points ≈ 0.1 cm
+
+            for ($rowIdx = $dataStartRow; $rowIdx < $dataStartRow + $dataRowCount; $rowIdx++) {
+                $requests[] = new Docs\Request([
+                    'updateTableRowStyle' => [
+                        'tableRowStyle' => [
+                            'minRowHeight' => ['magnitude' => $minHeightPt, 'unit' => 'PT'],
+                        ],
+                        'fields' => 'minRowHeight',
+                        'tableStartLocation' => ['index' => $tableStartIndex],
+                        'rowIndices' => [$rowIdx],
+                    ],
+                ]);
+            }
+
+            if (!empty($requests)) {
+                $this->docsService->documents->batchUpdate(
+                    $documentId,
+                    new Docs\BatchUpdateDocumentRequest(['requests' => $requests])
+                );
+                Log::info("Applied minimum row height to " . count($requests) . " rows");
+            }
+        } catch (\Exception $e) {
+            Log::error("Failed to apply minimum row height: " . $e->getMessage());
+            // Non-fatal - table is already populated and merged
         }
     }
 

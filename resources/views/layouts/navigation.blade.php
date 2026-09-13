@@ -54,6 +54,16 @@
                 <svg class="w-5 h-5 mr-3 {{ request()->routeIs('units.*') ? 'text-blue-200' : 'text-[#4299e1] group-hover:text-[#2b6cb0]' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path></svg>
                 {{ __('Master Satuan') }}
             </a>
+            @php $lhpReadyCount = \App\Models\FormPengujian::where('status', 'kirim_customer')->count(); @endphp
+            <a href="{{ route('admin.lhp-ready') }}" class="{{ $linkClass }} {{ request()->routeIs('admin.lhp-ready') ? $activeClass : $inactiveClass }}">
+                <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.lhp-ready') ? 'text-blue-200' : 'text-[#4299e1] group-hover:text-[#2b6cb0]' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                {{ __('LHP Siap Kirim') }}
+                @if($lhpReadyCount > 0)
+                    <span class="ml-auto inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold rounded-full bg-amber-400 text-white">
+                        {{ $lhpReadyCount }}
+                    </span>
+                @endif
+            </a>
         @endif
 
         {{-- Kepala UPA Menu --}}
@@ -80,14 +90,10 @@
                 <svg class="w-5 h-5 mr-3 {{ request()->routeIs('kepala-divisi.*') ? 'text-blue-200' : 'text-[#4299e1] group-hover:text-[#2b6cb0]' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 {{ __('Verifikasi Divisi') }}
             </a>
-            <a href="{{ route('form.index') }}" class="{{ $linkClass }} {{ request()->routeIs('form.index') || request()->routeIs('form.show') ? $activeClass : $inactiveClass }}">
-                <svg class="w-5 h-5 mr-3 {{ request()->routeIs('form.index') || request()->routeIs('form.show') ? 'text-blue-200' : 'text-[#4299e1] group-hover:text-[#2b6cb0]' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                {{ __('Form Pengujian') }}
-            </a>
         @endif
 
-        {{-- Analitik Menu (Accessible by Admin, Kepala UPA, Kepala Divisi) --}}
-        @if(in_array($userRole, [\App\Enums\Role::ADMIN, \App\Enums\Role::KEPALA_UPA, \App\Enums\Role::KEPALA_DIVISI]))
+        {{-- Analitik Menu (Accessible by Admin and Kepala UPA) --}}
+        @if(in_array($userRole, [\App\Enums\Role::ADMIN, \App\Enums\Role::KEPALA_UPA]))
             <div class="pt-5 pb-2 px-4 text-[11px] font-bold text-[#4a5568] uppercase tracking-widest">Analitik</div>
             <a href="{{ route('statistics.index') }}" class="{{ $linkClass }} {{ request()->routeIs('statistics.*') ? $activeClass : $inactiveClass }}">
                 <svg class="w-5 h-5 mr-3 {{ request()->routeIs('statistics.*') ? 'text-blue-200' : 'text-[#4299e1] group-hover:text-[#2b6cb0]' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>

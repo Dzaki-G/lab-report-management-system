@@ -39,12 +39,22 @@ class AnalisController extends Controller
         });
 
         // History — SP3s where this analyst filled at least one result, form moved on
-        $historySp3s = Sp3Document::with(['form', 'parameter'])
+        $historySp3s = Sp3Document::with(['form', 'parameter', 'samples'])
             ->whereHas('form', fn ($q) => $q->whereIn('status', ['menunggu_review_divisi', 'ttd_upa', 'selesai']))
             ->whereHas('samples.sampleParameters', fn ($q) => $q->where('filled_by_analyst_id', $userId))
             ->latest()
             ->take(20)
-            ->get();
+            ->get()
+            ->map(function ($sp3) use ($userId) {
+                $sp3->setRelation('sampleParameters',
+                    \App\Models\SampleParameter::with(['sample', 'analysisResult'])
+                        ->whereIn('sample_id', $sp3->samples->pluck('id'))
+                        ->where('parameter_id', $sp3->parameter_id)
+                        ->where('filled_by_analyst_id', $userId)
+                        ->get()
+                );
+                return $sp3;
+            });
 
         return view('analis.dashboard', compact('activeSp3s', 'historySp3s'));
     }

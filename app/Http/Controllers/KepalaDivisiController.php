@@ -7,9 +7,9 @@ use App\Models\FormVerification;
 use App\Models\Sp3Document;
 use App\Models\SampleParameter;
 use App\Services\NotificationService;
-use App\Enums\Role;
+use App\Jobs\GenerateLhpJob;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class KepalaDivisiController extends Controller
 {
@@ -25,13 +25,17 @@ class KepalaDivisiController extends Controller
             ->latest()
             ->get();
 
-        $recentlyApproved = FormPengujian::with('admin')
-            ->whereIn('status', ['ttd_upa', 'selesai'])
+        $inProgress = FormPengujian::with('admin')
+            ->where('status', 'dalam_pengujian')
             ->latest()
-            ->take(10)
             ->get();
 
-        return view('kepala-divisi.dashboard', compact('pendingReview', 'recentlyApproved'));
+        $recentlyApproved = FormPengujian::with('admin')
+            ->whereIn('status', ['ttd_upa', 'kirim_customer', 'selesai'])
+            ->latest()
+            ->get();
+
+        return view('kepala-divisi.dashboard', compact('pendingReview', 'inProgress', 'recentlyApproved'));
     }
 
     /**
@@ -80,12 +84,7 @@ class KepalaDivisiController extends Controller
             'note' => "SP3 {$sp3->sp3_number} disetujui",
         ]);
 
-        try {
-            $this->maybeGenerateLhp($sp3->form);
-        } catch (\Exception $e) {
-            Log::error("Failed to generate LHP after SP3 approval for form {$sp3->form_pengujian_id}: " . $e->getMessage());
-            return back()->with('warning', "SP3 {$sp3->sp3_number} disetujui, tapi LHP gagal di-generate: " . $e->getMessage());
-        }
+        $this->maybeDispatchLhpJob($sp3->form);
 
         return back()->with('success', "SP3 {$sp3->sp3_number} disetujui.");
     }
@@ -149,11 +148,6 @@ class KepalaDivisiController extends Controller
         return view('kepala-divisi.show', compact('form'));
     }
 
-    /**
-     * Manual retry endpoint: generate the LHP for a form where all SP3s are approved.
-     * Needed because maybeGenerateLhp() silently swallows Google Docs failures and
-     * approved SP3s can't be re-approved, so without this there is no retry path.
-     */
     public function generateLhp(FormPengujian $form)
     {
         $form->refresh();
@@ -166,54 +160,63 @@ class KepalaDivisiController extends Controller
             return back()->with('error', 'Belum semua SP3 disetujui.');
         }
 
-        try {
-            $this->maybeGenerateLhp($form);
-        } catch (\Exception $e) {
-            Log::error("Manual LHP generate failed for form {$form->form_number}: " . $e->getMessage());
-            return back()->with('error', 'Gagal generate LHP: ' . $e->getMessage());
+        $dispatched = $this->maybeDispatchLhpJob($form);
+
+        if (!$dispatched) {
+            return back()->with('info', 'LHP sedang dalam proses generate.');
         }
 
+        return back()->with('success', 'LHP sedang di-generate, halaman akan diperbarui otomatis.');
+    }
+
+    public function lhpStatus(FormPengujian $form)
+    {
         $form->refresh();
-        if ($form->lhp_google_file_id) {
-            return back()->with('success', 'LHP berhasil di-generate.');
-        }
-
-        return back()->with('error', 'Gagal generate LHP. Silakan coba lagi.');
+        return response()->json([
+            'status'         => $form->lhp_generation_status,
+            'lhp_file_id'    => $form->lhp_google_file_id,
+            'error'          => $form->lhp_generation_error,
+        ]);
     }
 
     /**
-     * Generate the LHP once every SP3 for this form is approved.
-     * This is the ONLY point in the whole lifecycle the LHP Google Doc
-     * is created — never regenerated afterward. UPA's later signature
-     * is a text patch on this same document, not a new file.
+     * Atomically claim the "generating" slot then dispatch the job.
+     * Returns true if dispatched, false if already in-progress/done.
      */
-    private function maybeGenerateLhp(FormPengujian $form): void
+    private function maybeDispatchLhpJob(FormPengujian $form): bool
     {
         $form->refresh();
 
         if (!$form->allSp3Approved()) {
-            return; // still waiting on other SP3s
+            return false;
         }
 
-        $googleDocsService = new \App\Services\GoogleDocsService();
-        $lhpResult = $googleDocsService->generateLhp($form, auth()->user()->full_name);
+        if ($form->lhp_google_file_id) {
+            return false;
+        }
 
-        $form->update([
-            'lhp_google_file_id' => $lhpResult['id'],
-            'lhp_uploaded_at' => now(),
-            'lhp_signed_divisi_at' => now(),
-            'status' => 'ttd_upa',
-        ]);
+        // Atomic check-and-set: only one process wins this update
+        $claimed = DB::table('form_pengujian')
+            ->where('id', $form->id)
+            ->where(function ($q) {
+                $q->whereNull('lhp_generation_status')
+                  ->orWhere('lhp_generation_status', 'failed');
+            })
+            ->update([
+                'lhp_generation_status'     => 'queued',
+                'lhp_generation_started_at' => now(),
+            ]);
 
-        FormVerification::create([
-            'form_pengujian_id' => $form->id,
-            'action' => 'approve',
-            'from_status' => 'menunggu_review_divisi',
-            'to_status' => 'ttd_upa',
-            'verified_by' => auth()->user()->user_id,
-        ]);
+        if ($claimed === 0) {
+            return false; // Another process already claimed it
+        }
 
-        $notificationService = new NotificationService();
-        $notificationService->notifyTtdRequest($form, Role::KEPALA_UPA);
+        GenerateLhpJob::dispatch(
+            $form->id,
+            auth()->user()->full_name,
+            auth()->user()->user_id,
+        );
+
+        return true;
     }
 }

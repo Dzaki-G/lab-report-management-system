@@ -68,20 +68,21 @@
                                 $today = \Carbon\Carbon::today();
                                 $daysLeft = $today->diffInDays($deadline, false);
                                 $isOverdue = $daysLeft < 0;
+                                $isUrgent = !$isOverdue && $daysLeft <= 3;
                                 $isCompleted = in_array($form->status, ['selesai', 'ditolak']);
                             @endphp
-                            <p class="font-medium {{ $isOverdue && !$isCompleted ? 'text-red-600' : 'text-gray-900' }}">
-                                {{ $deadline->format('d M Y') }}
-                                @if(!$isCompleted)
-                                    @if($isOverdue)
-                                        <span class="text-sm text-red-600">({{ abs($daysLeft) }} hari terlambat)</span>
-                                    @elseif($daysLeft == 0)
-                                        <span class="text-sm text-red-600">(Hari ini!)</span>
-                                    @else
-                                        <span class="text-sm text-gray-500">({{ $daysLeft }} hari lagi)</span>
-                                    @endif
-                                @endif
-                            </p>
+                            <p class="font-medium text-gray-900">{{ $deadline->format('d M Y') }}</p>
+                            @if($isCompleted)
+                                <span class="text-sm text-gray-400">-</span>
+                            @elseif($isOverdue)
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 border border-red-200">{{ abs($daysLeft) }} hari terlambat</span>
+                            @elseif($daysLeft == 0)
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-200">Hari ini!</span>
+                            @elseif($isUrgent)
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">{{ $daysLeft }} hari lagi</span>
+                            @else
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">{{ $daysLeft }} hari lagi</span>
+                            @endif
                         </div>
                         <div>
                             <p class="text-sm text-gray-500">Admin</p>
@@ -124,15 +125,11 @@
                     </h3>
                     @php
                         $steps = [
-                            1 => ['status' => 'verifikasi_upa_1', 'label' => 'Ver. UPA'],
-                            2 => ['status' => 'verifikasi_divisi', 'label' => 'Ver. Divisi'],
-                            3 => ['status' => 'dalam_pengujian', 'label' => 'Pengujian'],
-                            4 => ['status' => 'verifikasi_hasil_divisi', 'label' => 'Ver. Hasil'],
-                            5 => ['status' => 'input_lhp', 'label' => 'Input LHP'],
-                            6 => ['status' => 'ttd_divisi_lhp', 'label' => 'TTD Divisi'],
-                            7 => ['status' => 'ttd_upa', 'label' => 'TTD UPA'],
-                            8 => ['status' => 'kirim_customer', 'label' => 'Kirim'],
-                            9 => ['status' => 'selesai', 'label' => 'Selesai'],
+                            1 => ['status' => 'dalam_pengujian',        'label' => 'Analisis'],
+                            2 => ['status' => 'menunggu_review_divisi', 'label' => 'Review Divisi'],
+                            3 => ['status' => 'ttd_upa',                'label' => 'TTD UPA'],
+                            4 => ['status' => 'kirim_customer',         'label' => 'Kirim Customer'],
+                            5 => ['status' => 'selesai',                'label' => 'Selesai'],
                         ];
                         $statusOrder = array_column($steps, 'status');
                         $currentIndex = array_search($form->status, $statusOrder);
@@ -154,7 +151,7 @@
                                     <span class="text-[10px] text-gray-500 mt-0.5 text-center leading-tight">{{ $verifierName }}</span>
                                 @endif
                             </div>
-                            @if($num < 9)
+                            @if($num < 5)
                                 <div class="flex-1 h-1.5 mx-2 min-w-6 rounded-full {{ $num <= $currentIndex ? 'bg-gradient-to-r from-blue-500 to-indigo-500' : 'bg-gray-100' }}"></div>
                             @endif
                         @endforeach
@@ -276,42 +273,42 @@
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
-                                {{-- SPU --}}
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">SPU (Surat Perintah Uji)</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {{ $form->no_spu ?? 'Belum ada nomor' }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        @if($form->spu_signed_doc_id)
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Signed</span>
-                                        @elseif($form->spu_unsigned_doc_id)
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Draft / Unsigned</span>
-                                        @else
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Belum Ada</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        @php
-                                            // Construct URL if ID exists but URL doesn't
-                                            $spuUrl = $form->spu_signed_doc_url 
-                                                ?? ($form->spu_signed_doc_id ? "https://docs.google.com/document/d/{$form->spu_signed_doc_id}" : null)
-                                                ?? $form->spu_unsigned_doc_url 
-                                                ?? ($form->spu_unsigned_doc_id ? "https://docs.google.com/document/d/{$form->spu_unsigned_doc_id}" : null);
-                                        @endphp
-                                        
-                                        @if($spuUrl)
-                                            <a href="{{ $spuUrl }}" target="_blank" class="text-blue-600 hover:text-blue-900 flex items-center">
-                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-                                                Lihat Dokumen
-                                            </a>
-                                        @else
-                                            <span class="text-gray-400">-</span>
-                                        @endif
-                                    </td>
-                                </tr>
+                                {{-- SP3 List (first) --}}
+                                @foreach($form->sp3Documents as $sp3)
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            SP3 - {{ $sp3->parameter->name ?? 'Parameter' }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {{ $sp3->sp3_number ?? '-' }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            @if($sp3->google_doc_url)
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Tersedia</span>
+                                            @elseif($sp3->google_doc_id)
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Draft</span>
+                                            @else
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Belum Ada</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            @php
+                                                $sp3Url = $sp3->google_doc_url
+                                                    ?? ($sp3->google_doc_id ? "https://docs.google.com/document/d/{$sp3->google_doc_id}" : null);
+                                            @endphp
+                                            @if($sp3Url)
+                                                <a href="{{ $sp3Url }}" target="_blank" class="text-blue-600 hover:text-blue-900 flex items-center">
+                                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                                    Lihat Dokumen
+                                                </a>
+                                            @else
+                                                <span class="text-gray-400">-</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
 
-                                {{-- LHP --}}
+                                {{-- LHP (last) --}}
                                 <tr>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">LHP (Laporan Hasil Pengujian)</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -335,42 +332,6 @@
                                         @endif
                                     </td>
                                 </tr>
-
-                                {{-- SP3 List --}}
-                                @foreach($form->sp3Documents as $sp3)
-                                    <tr>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            SP3 - {{ $sp3->parameter->name ?? 'Parameter' }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {{ $sp3->sp3_number ?? '-' }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            @if($sp3->google_doc_url)
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Tersedia</span>
-                                            @elseif($sp3->google_doc_id)
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Draft</span>
-                                            @else
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Belum Ada</span>
-                                            @endif
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            @php
-                                                $sp3Url = $sp3->google_doc_url 
-                                                    ?? ($sp3->google_doc_id ? "https://docs.google.com/document/d/{$sp3->google_doc_id}" : null);
-                                            @endphp
-                                            
-                                            @if($sp3Url)
-                                                <a href="{{ $sp3Url }}" target="_blank" class="text-blue-600 hover:text-blue-900 flex items-center">
-                                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-                                                    Lihat Dokumen
-                                                </a>
-                                            @else
-                                                <span class="text-gray-400">-</span>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @endforeach
                             </tbody>
                         </table>
                     </div>
@@ -378,7 +339,7 @@
             </div>
 
             {{-- SP3 Documents Edit (Only visible for Admin) --}}
-            @if(strtolower(auth()->user()->role->role_name) === 'admin' && $form->sp3Documents && $form->sp3Documents->isNotEmpty())
+            @if(auth()->user()->role_id == \App\Enums\Role::ADMIN && $form->sp3Documents && $form->sp3Documents->isNotEmpty())
                 <div class="bg-white/90 backdrop-blur-sm overflow-hidden shadow-sm rounded-2xl border border-gray-100 mb-8 transition-all hover:shadow-md">
                     <div class="p-8">
                         <h3 class="text-xl font-bold text-gray-800 mb-2 flex items-center gap-2">

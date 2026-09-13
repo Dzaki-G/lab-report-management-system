@@ -183,12 +183,13 @@
                                         $daysLeft = $today->diffInDays($deadline, false);
                                         $isOverdue = $daysLeft < 0;
                                         $isUrgent = $daysLeft >= 0 && $daysLeft <= 3;
-                                        $isCompleted = $form->status === 'selesai';
+                                        $isCompleted = in_array($form->status, ['kirim_customer', 'selesai']);
 
                                         $statusColors = [
                                             'dalam_pengujian'        => 'bg-blue-100 text-blue-800',
                                             'menunggu_review_divisi' => 'bg-indigo-100 text-indigo-800',
                                             'ttd_upa'                => 'bg-orange-100 text-orange-800',
+                                            'kirim_customer'         => 'bg-teal-100 text-teal-800',
                                             'selesai'                => 'bg-green-100 text-green-800',
                                         ];
                                     @endphp

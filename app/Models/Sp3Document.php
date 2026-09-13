@@ -33,6 +33,9 @@ class Sp3Document extends Model
         'lcp_google_file_id',
         'lcp_google_file_url',
         'lcp_uploaded_at',
+        // Async generation tracking
+        'doc_generation_status',
+        'doc_generation_error',
     ];
 
     protected $casts = [

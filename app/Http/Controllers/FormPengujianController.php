@@ -11,6 +11,7 @@ use App\Models\Parameter;
 use App\Models\Sp3Document;
 use App\Models\Sp3Sample;
 use App\Services\NotificationService;
+use App\Jobs\GenerateSp3Job;
 use App\Enums\Role;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -196,11 +197,7 @@ class FormPengujianController extends Controller
             $sp3DetailsByParameter = collect($validated['sp3_details'] ?? [])
                 ->keyBy('parameter_id');
 
-            // Create one SP3 DB record per parameter group. Google Doc generation
-            // happens AFTER the transaction commits (see below) so a Drive hiccup
-            // never rolls back the form/sample data that's already safely saved.
-            $createdSp3Documents = [];
-
+            // Create one SP3 DB record per parameter group.
             foreach ($samplesByParameter as $parameterId => $samples) {
                 $detail = $sp3DetailsByParameter->get($parameterId, []);
 
@@ -220,8 +217,6 @@ class FormPengujianController extends Controller
                         'sample_id'       => $sample['sample_id'],
                     ]);
                 }
-
-                $createdSp3Documents[] = ['sp3' => $sp3, 'samples' => $samples];
             }
 
             // Notify all analysts that new work is available (collective — no assignment/claiming)
@@ -229,52 +224,17 @@ class FormPengujianController extends Controller
             $notificationService->notifyFormPending($form, Role::ANALIS, 'pengujian sampel baru');
         });
 
-        // Generate the SP3 Google Doc for each parameter group — outside the DB
-        // transaction, same reasoning as the old code: a Drive failure shouldn't
-        // undo the form/sample records that already saved successfully.
-        $sp3Warnings = [];
+        // Dispatch one job per SP3 — non-blocking, no timeout risk
         if ($form) {
-            $form->load('sp3Documents.parameter');
-            $googleDocsService = new \App\Services\GoogleDocsService();
-
+            $form->load('sp3Documents');
             foreach ($form->sp3Documents as $sp3) {
-                $samples = $sp3->samples()->get()->map(fn ($s) => [
-                    'sample_id'   => $s->id,
-                    'sample_code' => $s->sample_code,
-                    'sample_name' => $s->sample_name,
-                ])->toArray();
-
-                try {
-                    $sp3Result = $googleDocsService->generateSp3WithTable(
-                        $sp3->sp3_number,
-                        $samples,
-                        $sp3->parameter->name ?? '',
-                        $googleDocsService->generatePerihal($form),
-                        $sp3->no_sppp,
-                        $sp3->ik
-                    );
-
-                    $sp3->update([
-                        'google_doc_id'  => $sp3Result['id'],
-                        'google_doc_url' => $sp3Result['url'] ?? null,
-                    ]);
-                } catch (\Exception $e) {
-                    Log::error("Failed to generate SP3 doc {$sp3->sp3_number}: " . $e->getMessage());
-                    $sp3Warnings[] = $sp3->sp3_number;
-                }
+                $sp3->update(['doc_generation_status' => 'queued']);
+                GenerateSp3Job::dispatch($sp3->id);
             }
         }
 
-        $successMessage = 'Form Pengujian berhasil dibuat, SP3 telah digenerate untuk setiap parameter.';
-        $warningMessage = null;
-        if (!empty($sp3Warnings)) {
-            $warningMessage = 'Sebagian dokumen SP3 gagal di-generate (kemungkinan masalah jaringan): '
-                . implode(', ', $sp3Warnings) . '. Silakan generate ulang melalui halaman detail form.';
-        }
-
         return redirect()->route('form.index')
-            ->with('success', $successMessage)
-            ->with('warning', $warningMessage);
+            ->with('success', 'Form Pengujian berhasil dibuat. Dokumen SP3 sedang digenerate di background.');
     }
 
     public function show(FormPengujian $form)
@@ -321,6 +281,67 @@ class FormPengujianController extends Controller
      * Updates the SP3 record and regenerates the Google Doc so the
      * live document reflects the new SPPP/IK values.
      */
+    public function lhpReady()
+    {
+        $ready = FormPengujian::where('status', 'kirim_customer')
+            ->with('admin')
+            ->latest('lhp_signed_upa_at')
+            ->get();
+
+        $recentDone = FormPengujian::where('status', 'selesai')
+            ->with('admin')
+            ->latest('updated_at')
+            ->limit(20)
+            ->get();
+
+        return view('admin.lhp-ready', compact('ready', 'recentDone'));
+    }
+
+    public function markSent(FormPengujian $form)
+    {
+        if ($form->status !== 'kirim_customer') {
+            return back()->with('error', 'Form tidak dalam status siap kirim.');
+        }
+
+        $form->update(['status' => 'selesai']);
+
+        FormVerification::create([
+            'form_pengujian_id' => $form->id,
+            'action'            => 'kirim_customer',
+            'from_status'       => 'kirim_customer',
+            'to_status'         => 'selesai',
+            'verified_by'       => auth()->user()->user_id,
+        ]);
+
+        return back()->with('success', 'LHP berhasil dikirim ke customer. Form ditandai selesai.');
+    }
+
+    public function sp3DocStatus(Sp3Document $sp3)
+    {
+        $sp3->refresh();
+        return response()->json([
+            'status'       => $sp3->doc_generation_status,
+            'google_doc_id' => $sp3->google_doc_id,
+            'error'        => $sp3->doc_generation_error,
+        ]);
+    }
+
+    public function retrySp3Doc(Sp3Document $sp3)
+    {
+        if ($sp3->google_doc_id) {
+            return back()->with('info', 'Dokumen SP3 sudah ada.');
+        }
+
+        $sp3->update([
+            'doc_generation_status' => 'queued',
+            'doc_generation_error'  => null,
+        ]);
+
+        GenerateSp3Job::dispatch($sp3->id);
+
+        return back()->with('success', "SP3 {$sp3->sp3_number} sedang digenerate ulang.");
+    }
+
     public function updateSp3Info(Request $request, Sp3Document $sp3)
     {
         $request->validate([

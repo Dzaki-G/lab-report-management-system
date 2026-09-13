@@ -34,12 +34,18 @@ class FormPengujian extends Model
         'lhp_uploaded_at',
         'lhp_signed_divisi_at',
         'lhp_signed_upa_at',
+        'lhp_generation_status',
+        'lhp_generation_started_at',
+        'lhp_generation_attempts',
+        'lhp_generation_error',
     ];
 
     protected $casts = [
         'lhp_uploaded_at' => 'datetime',
         'lhp_signed_divisi_at' => 'datetime',
         'lhp_signed_upa_at' => 'datetime',
+        'lhp_generation_started_at' => 'datetime',
+        'lhp_generation_attempts' => 'integer',
     ];
 
     public function admin()
@@ -77,10 +83,11 @@ class FormPengujian extends Model
     public function getStatusStepAttribute()
     {
         return match($this->status) {
-            'dalam_pengujian' => 1,
+            'dalam_pengujian'        => 1,
             'menunggu_review_divisi' => 2,
-            'ttd_upa' => 3,
-            'selesai' => 4,
+            'ttd_upa'                => 3,
+            'kirim_customer'         => 4,
+            'selesai'                => 5,
             default => 0,
         };
     }
@@ -142,10 +149,11 @@ class FormPengujian extends Model
     public function getVerifierName($stepStatus)
     {
         return match($stepStatus) {
-            'dalam_pengujian' => 'Analis',
+            'dalam_pengujian'        => 'Analis',
             'menunggu_review_divisi' => 'Kepala Divisi',
-            'ttd_upa' => 'Kepala UPA',
-            'selesai' => 'Admin',
+            'ttd_upa'                => 'Kepala UPA',
+            'kirim_customer'         => 'Admin',
+            'selesai'                => 'Admin',
             default => null,
         };
     }

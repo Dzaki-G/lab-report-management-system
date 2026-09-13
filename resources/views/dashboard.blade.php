@@ -171,30 +171,25 @@
                     </div>
                 @endif
 
-                {{-- Status Distribution --}}
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-8">
                     <h3 class="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
                         <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
                         Distribusi Status Form
                     </h3>
-                    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                         @php
                             $statusLabels = [
-                                'verifikasi_upa_1' => ['label' => 'Ver. UPA', 'color' => 'yellow'],
-                                'verifikasi_divisi' => ['label' => 'Ver. Divisi', 'color' => 'purple'],
-                                'dalam_pengujian' => ['label' => 'Pengujian', 'color' => 'blue'],
-                                'verifikasi_hasil_divisi' => ['label' => 'Ver. Hasil', 'color' => 'indigo'],
-                                'input_lhp' => ['label' => 'Input LHP', 'color' => 'cyan'],
-                                'ttd_divisi_lhp' => ['label' => 'TTD Divisi', 'color' => 'amber'],
-                                'ttd_upa' => ['label' => 'TTD UPA', 'color' => 'orange'],
-                                'kirim_customer' => ['label' => 'Kirim', 'color' => 'pink'],
-                                'selesai' => ['label' => 'Selesai', 'color' => 'green'],
+                                'dalam_pengujian'       => ['label' => 'Analisis',       'bg' => 'bg-blue-50',    'border' => 'border-blue-100',   'num' => 'text-blue-600',   'lbl' => 'text-blue-700'],
+                                'menunggu_review_divisi'=> ['label' => 'Review Divisi',  'bg' => 'bg-purple-50',  'border' => 'border-purple-100', 'num' => 'text-purple-600', 'lbl' => 'text-purple-700'],
+                                'ttd_upa'               => ['label' => 'TTD UPA',        'bg' => 'bg-orange-50',  'border' => 'border-orange-100', 'num' => 'text-orange-600', 'lbl' => 'text-orange-700'],
+                                'kirim_customer'        => ['label' => 'Kirim Customer', 'bg' => 'bg-pink-50',    'border' => 'border-pink-100',   'num' => 'text-pink-600',   'lbl' => 'text-pink-700'],
+                                'selesai'               => ['label' => 'Selesai',        'bg' => 'bg-green-50',   'border' => 'border-green-100',  'num' => 'text-green-600',  'lbl' => 'text-green-700'],
                             ];
                         @endphp
                         @foreach($statusLabels as $status => $info)
-                            <div class="text-center p-5 bg-{{ $info['color'] }}-50/50 hover:bg-{{ $info['color'] }}-50 rounded-xl border border-{{ $info['color'] }}-100 transition-colors duration-200">
-                                <p class="text-3xl font-extrabold text-{{ $info['color'] }}-600 tracking-tight">{{ $statusCounts[$status] ?? 0 }}</p>
-                                <p class="text-[11px] font-bold text-{{ $info['color'] }}-700 uppercase tracking-wider mt-2">{{ $info['label'] }}</p>
+                            <div class="text-center p-5 {{ $info['bg'] }} hover:brightness-95 rounded-xl border {{ $info['border'] }} transition-colors duration-200">
+                                <p class="text-3xl font-extrabold {{ $info['num'] }} tracking-tight">{{ $statusCounts[$status] ?? 0 }}</p>
+                                <p class="text-[11px] font-bold {{ $info['lbl'] }} uppercase tracking-wider mt-2">{{ $info['label'] }}</p>
                             </div>
                         @endforeach
                     </div>
@@ -658,7 +653,7 @@
                                                     @endif
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap text-center">
-                                                    <a href="{{ route('form-list.show', $form) }}" 
+                                                    <a href="{{ $role == \App\Enums\Role::KEPALA_DIVISI ? route('kepala-divisi.show', $form) : ($role == \App\Enums\Role::KEPALA_UPA ? route('kepala-upa.show', $form) : route('form-list.show', $form)) }}"
                                                        class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all duration-200 group-hover:scale-110 shadow-sm hover:shadow-md" title="Detail">
                                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                                     </a>

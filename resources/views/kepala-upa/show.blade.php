@@ -17,10 +17,11 @@
                     <div class="flex items-center justify-between overflow-x-auto pb-2">
                         @php
                             $steps = [
-                                1 => ['status' => 'dalam_pengujian',        'label' => 'Pengujian'],
+                                1 => ['status' => 'dalam_pengujian',        'label' => 'Analisis'],
                                 2 => ['status' => 'menunggu_review_divisi', 'label' => 'Review Divisi'],
                                 3 => ['status' => 'ttd_upa',                'label' => 'TTD UPA'],
-                                4 => ['status' => 'selesai',                'label' => 'Selesai'],
+                                4 => ['status' => 'kirim_customer',         'label' => 'Kirim Customer'],
+                                5 => ['status' => 'selesai',                'label' => 'Selesai'],
                             ];
                             $statusOrder = array_column($steps, 'status');
                             $currentIndex = array_search($form->status, $statusOrder);
@@ -41,7 +42,7 @@
                                     <span class="text-[10px] text-gray-500 mt-0.5 text-center leading-tight">{{ $verifierName }}</span>
                                 @endif
                             </div>
-                            @if($num < 4)
+                            @if($num < 5)
                                 <div class="flex-1 h-1 mx-1 min-w-4 {{ $num <= $currentIndex ? 'bg-blue-500' : 'bg-gray-200' }}"></div>
                             @endif
                         @endforeach
@@ -89,7 +90,29 @@
                                 <div><span class="text-gray-500">No. Terima Sampel:</span> <strong>{{ $form->no_terima_sampel ?? '-' }}</strong></div>
                                 <div><span class="text-gray-500">Customer:</span> <strong>{{ $form->customer_name }}</strong></div>
                                 <div><span class="text-gray-500">Tanggal Masuk:</span> {{ \Carbon\Carbon::parse($form->received_date)->format('d M Y') }}</div>
-                                <div><span class="text-gray-500">Deadline:</span> {{ \Carbon\Carbon::parse($form->deadline_date)->format('d M Y') }}</div>
+                                <div>
+                                    <span class="text-gray-500">Deadline:</span>
+                                    @php
+                                        $deadline = \Carbon\Carbon::parse($form->deadline_date);
+                                        $today = \Carbon\Carbon::today();
+                                        $daysLeft = $today->diffInDays($deadline, false);
+                                        $isOverdue = $daysLeft < 0;
+                                        $isUrgent = !$isOverdue && $daysLeft <= 3;
+                                        $isCompleted = in_array($form->status, ['selesai', 'ditolak']);
+                                    @endphp
+                                    <strong>{{ $deadline->format('d M Y') }}</strong>
+                                    @if($isCompleted)
+                                        <span class="text-sm text-gray-400">-</span>
+                                    @elseif($isOverdue)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 border border-red-200">{{ abs($daysLeft) }} hari terlambat</span>
+                                    @elseif($daysLeft == 0)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-200">Hari ini!</span>
+                                    @elseif($isUrgent)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">{{ $daysLeft }} hari lagi</span>
+                                    @else
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">{{ $daysLeft }} hari lagi</span>
+                                    @endif
+                                </div>
                                 <div><span class="text-gray-500">Status:</span> 
                                     <span class="px-2 py-1 rounded text-sm bg-blue-100 text-blue-700">{{ $form->status_label }}</span>
                                 </div>

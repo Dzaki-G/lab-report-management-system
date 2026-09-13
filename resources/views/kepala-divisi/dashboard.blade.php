@@ -18,28 +18,6 @@
                 </div>
             @endif
 
-            {{-- Stats --}}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-6">
-                    <div class="flex items-center">
-                        <div class="flex-1">
-                            <p class="text-sm text-indigo-600 font-medium">Menunggu Review SP3</p>
-                            <p class="text-3xl font-bold text-indigo-700">{{ $pendingReview->count() }}</p>
-                        </div>
-                        <div class="text-indigo-400 text-4xl">🔬</div>
-                    </div>
-                </div>
-                <div class="bg-green-50 border border-green-200 rounded-lg p-6">
-                    <div class="flex items-center">
-                        <div class="flex-1">
-                            <p class="text-sm text-green-600 font-medium">Sudah Diproses (10 terakhir)</p>
-                            <p class="text-3xl font-bold text-green-700">{{ $recentlyApproved->count() }}</p>
-                        </div>
-                        <div class="text-green-400 text-4xl">✅</div>
-                    </div>
-                </div>
-            </div>
-
             {{-- Pending Review --}}
             @if($pendingReview->isNotEmpty())
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
@@ -78,6 +56,30 @@
                 </div>
             @endif
 
+            {{-- In Progress --}}
+            @if($inProgress->isNotEmpty())
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                    <div class="p-6">
+                        <h3 class="text-lg font-semibold text-blue-700 mb-4">⏳ Sedang Dalam Pengujian</h3>
+                        <div class="space-y-2">
+                            @foreach($inProgress as $form)
+                                <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                    <div>
+                                        <p class="font-medium text-gray-800">{{ $form->no_terima_sampel ?? $form->lhp_number ?? '-' }}</p>
+                                        <p class="text-sm text-gray-500">{{ $form->customer_name }}</p>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">Dalam Pengujian</span>
+                                        <a href="{{ route('kepala-divisi.show', $form) }}"
+                                           class="text-blue-600 hover:underline text-sm">Detail</a>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             {{-- Recently Processed --}}
             @if($recentlyApproved->isNotEmpty())
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
@@ -106,7 +108,7 @@
             @endif
 
             {{-- Empty State --}}
-            @if($pendingReview->isEmpty() && $recentlyApproved->isEmpty())
+            @if($pendingReview->isEmpty() && $inProgress->isEmpty() && $recentlyApproved->isEmpty())
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-12 text-center">
                         <p class="text-gray-500 text-lg">Tidak ada form yang menunggu review</p>

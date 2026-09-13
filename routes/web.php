@@ -34,8 +34,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/notifications/{notif}', [\App\Http\Controllers\NotificationController::class, 'destroy'])->name('notifications.destroy');
 });
 
-// Form List, Detail Form, & Statistik accessible by Admin, Kepala UPA, and Kepala Divisi
-Route::middleware(['auth', 'role:' . Role::ADMIN . ',' . Role::KEPALA_UPA . ',' . Role::KEPALA_DIVISI])->group(function () {
+// Form List, Detail Form, & Statistik accessible by Admin and Kepala UPA
+Route::middleware(['auth', 'role:' . Role::ADMIN . ',' . Role::KEPALA_UPA])->group(function () {
     // Semua Form (arsip lintas role)
     Route::get('/semua-form', [\App\Http\Controllers\FormListController::class, 'index'])
         ->name('form-list.index');
@@ -99,6 +99,18 @@ Route::middleware(['auth', 'role:' . Role::ADMIN])->group(function () {
     // Admin manually set/override LHP number
     Route::post('/form-pengujian/{form}/update-lhp-number', [FormPengujianController::class, 'updateLhpNumber'])
         ->name('admin.update-lhp-number');
+
+    // SP3 doc async status + retry
+    Route::get('/sp3/{sp3}/doc-status', [FormPengujianController::class, 'sp3DocStatus'])
+        ->name('admin.sp3-doc-status');
+    Route::post('/sp3/{sp3}/retry-doc', [FormPengujianController::class, 'retrySp3Doc'])
+        ->name('admin.sp3-retry-doc');
+
+    // LHP ready-to-send list + mark sent
+    Route::get('/admin/lhp-siap-kirim', [FormPengujianController::class, 'lhpReady'])
+        ->name('admin.lhp-ready');
+    Route::post('/form-pengujian/{form}/mark-sent', [FormPengujianController::class, 'markSent'])
+        ->name('admin.mark-sent');
 
 
 
@@ -180,6 +192,8 @@ Route::middleware(['auth', 'role:' . Role::KEPALA_DIVISI])->group(function () {
         ->name('kepala-divisi.sp3.reject');
     Route::post('/kepala-divisi/form/{form}/generate-lhp', [\App\Http\Controllers\KepalaDivisiController::class, 'generateLhp'])
         ->name('kepala-divisi.generate-lhp');
+    Route::get('/kepala-divisi/form/{form}/lhp-status', [\App\Http\Controllers\KepalaDivisiController::class, 'lhpStatus'])
+        ->name('kepala-divisi.lhp-status');
 });
 
 // Signature upload — available to Kepala UPA and Kepala Divisi

@@ -27,9 +27,26 @@
                         </div>
                         <div>
                             <p class="text-sm text-gray-500">Deadline</p>
-                            <p class="font-medium text-gray-900 {{ \Carbon\Carbon::parse($form->deadline_date)->isPast() ? 'text-red-600' : '' }}">
-                                {{ \Carbon\Carbon::parse($form->deadline_date)->format('d M Y') }}
-                            </p>
+                            @php
+                                $deadline = \Carbon\Carbon::parse($form->deadline_date);
+                                $today = \Carbon\Carbon::today();
+                                $daysLeft = $today->diffInDays($deadline, false);
+                                $isOverdue = $daysLeft < 0;
+                                $isUrgent = !$isOverdue && $daysLeft <= 3;
+                                $isCompleted = in_array($form->status, ['selesai', 'ditolak']);
+                            @endphp
+                            <p class="font-medium text-gray-900">{{ $deadline->format('d M Y') }}</p>
+                            @if($isCompleted)
+                                <span class="text-sm text-gray-400">-</span>
+                            @elseif($isOverdue)
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 border border-red-200">{{ abs($daysLeft) }} hari terlambat</span>
+                            @elseif($daysLeft == 0)
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-200">Hari ini!</span>
+                            @elseif($isUrgent)
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">{{ $daysLeft }} hari lagi</span>
+                            @else
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">{{ $daysLeft }} hari lagi</span>
+                            @endif
                         </div>
                         <div>
                             <p class="text-sm text-gray-500">Total Sampel</p>

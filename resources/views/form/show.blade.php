@@ -36,8 +36,8 @@
                             <p class="font-medium text-gray-900">{{ $form->no_terima_sampel ?? '-' }}</p>
                         </div>
                         <div>
-                            <p class="text-sm text-gray-500">No. Terima Sampel</p>
-                            <p class="font-medium text-gray-900">{{ $form->no_terima_sampel ?? '-' }}</p>
+                            <p class="text-sm text-gray-500">No. LHP</p>
+                            <p class="font-medium text-gray-900">{{ $form->lhp_number ?? '-' }}</p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-500">Tanggal Masuk</p>
@@ -75,10 +75,11 @@
                         <div class="flex items-center justify-between overflow-x-auto pb-4">
                             @php
                                 $steps = [
-                                    1 => ['status' => 'dalam_pengujian',        'label' => 'Pengujian'],
+                                    1 => ['status' => 'dalam_pengujian',        'label' => 'Analisis'],
                                     2 => ['status' => 'menunggu_review_divisi', 'label' => 'Review Divisi'],
                                     3 => ['status' => 'ttd_upa',                'label' => 'TTD UPA'],
-                                    4 => ['status' => 'selesai',                'label' => 'Selesai'],
+                                    4 => ['status' => 'kirim_customer',         'label' => 'Kirim Customer'],
+                                    5 => ['status' => 'selesai',                'label' => 'Selesai'],
                                 ];
                                 $statusOrder = array_column($steps, 'status');
                                 $currentIndex = array_search($form->status, $statusOrder);
@@ -99,7 +100,7 @@
                                         <span class="text-[10px] text-gray-500 mt-1 text-center leading-tight">{{ $verifierName }}</span>
                                     @endif
                                 </div>
-                                @if($num < 4)
+                                @if($num < 5)
                                     <div class="flex-1 h-1.5 mx-2 min-w-6 rounded-full {{ $num <= $currentIndex ? 'bg-gradient-to-r from-blue-500 to-indigo-500' : 'bg-gray-100' }}"></div>
                                 @endif
                             @endforeach
@@ -268,7 +269,15 @@
 
                         <div class="space-y-6">
                             @foreach($form->sp3Documents as $sp3)
-                                <div class="group bg-gray-50/50 rounded-xl p-5 border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all duration-300">
+                                @php
+                                    $sp3GenStatus = $sp3->doc_generation_status;
+                                    $sp3Generating = in_array($sp3GenStatus, ['queued', 'processing']);
+                                    $sp3Failed = $sp3GenStatus === 'failed';
+                                    $sp3Done = !empty($sp3->google_doc_id);
+                                @endphp
+                                <div class="group bg-gray-50/50 rounded-xl p-5 border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all duration-300"
+                                     data-sp3-id="{{ $sp3->id }}"
+                                     data-sp3-done="{{ $sp3Done ? 'true' : 'false' }}">
                                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-3">
                                         <div>
                                             <h4 class="font-bold text-gray-900 flex items-center gap-2">
@@ -277,13 +286,32 @@
                                             </h4>
                                             <p class="text-sm font-medium text-gray-500 pl-4 mt-0.5">Parameter: {{ $sp3->parameter->name ?? '-' }}</p>
                                         </div>
-                                        @if($sp3->google_doc_id)
+                                        {{-- SP3 doc link / status --}}
+                                        @if($sp3Done)
                                             <a href="https://docs.google.com/document/d/{{ $sp3->google_doc_id }}" target="_blank"
                                                class="text-blue-600 hover:underline text-sm">Buka Dokumen</a>
+                                        @elseif($sp3Generating)
+                                            <span class="flex items-center gap-1.5 text-sm text-amber-600 font-medium" data-sp3-spinner="{{ $sp3->id }}">
+                                                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                                </svg>
+                                                Sedang digenerate...
+                                            </span>
+                                        @elseif($sp3Failed)
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-xs text-red-500" title="{{ $sp3->doc_generation_error }}">⚠ Gagal</span>
+                                                <form method="POST" action="{{ route('admin.sp3-retry-doc', $sp3) }}">
+                                                    @csrf
+                                                    <button type="submit" class="text-sm px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition">
+                                                        ↺ Coba Lagi
+                                                    </button>
+                                                </form>
+                                            </div>
                                         @endif
                                     </div>
 
-                                    <form action="{{ route('admin.update-sp3-info', $sp3) }}" method="POST" 
+                                    <form action="{{ route('admin.update-sp3-info', $sp3) }}" method="POST"
                                           class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
                                         @csrf
                                         <div>
@@ -299,7 +327,7 @@
                                                    class="w-full text-sm font-medium bg-gray-50 border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm">
                                         </div>
                                         <div>
-                                            <button type="submit" 
+                                            <button type="submit"
                                                     class="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md shadow-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/30 hover:-translate-y-0.5 py-2 px-4 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2">
                                                 Simpan / Update Dokumen
                                             </button>
@@ -313,4 +341,47 @@
             @endif
         </div>
     </div>
+
+    @php
+        $hasGeneratingSp3 = $form->sp3Documents->contains(fn($s) =>
+            in_array($s->doc_generation_status, ['queued', 'processing']) && !$s->google_doc_id
+        );
+    @endphp
+
+    @if($hasGeneratingSp3)
+    <script>
+        (function () {
+            const cards = document.querySelectorAll('[data-sp3-id]');
+            const pending = {};
+
+            cards.forEach(card => {
+                if (card.dataset.sp3Done === 'false') {
+                    pending[card.dataset.sp3Id] = { delay: 3000, attempts: 0 };
+                }
+            });
+
+            function pollOne(sp3Id, state) {
+                if (state.attempts++ > 30) return;
+                fetch(`/sp3/${sp3Id}/doc-status`, { headers: { Accept: 'application/json' } })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.status === 'completed' || data.status === 'failed' || data.google_doc_id) {
+                            location.reload();
+                            return;
+                        }
+                        state.delay = Math.min(state.delay * 1.4, 12000);
+                        setTimeout(() => pollOne(sp3Id, state), state.delay);
+                    })
+                    .catch(() => {
+                        state.delay = Math.min(state.delay * 1.4, 12000);
+                        setTimeout(() => pollOne(sp3Id, state), state.delay);
+                    });
+            }
+
+            Object.entries(pending).forEach(([id, state]) => {
+                setTimeout(() => pollOne(id, state), state.delay);
+            });
+        })();
+    </script>
+    @endif
 </x-app-layout>

@@ -59,9 +59,25 @@
                                                 <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">↩ Dikirim Ulang</span>
                                             @endif
                                         </div>
-                                        <p class="text-sm text-gray-500 mt-1">
+                                        <p class="text-sm text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
                                             No. Terima: <span class="font-medium text-gray-700">{{ $sp3->form->no_terima_sampel ?? '-' }}</span>
-                                            &bull; Deadline: {{ \Carbon\Carbon::parse($sp3->form->deadline_date)->format('d M Y') }}
+                                            &bull; Deadline: <span class="font-medium text-gray-700">{{ \Carbon\Carbon::parse($sp3->form->deadline_date)->format('d M Y') }}</span>
+                                            @php
+                                                $dl = \Carbon\Carbon::parse($sp3->form->deadline_date);
+                                                $dlDays = \Carbon\Carbon::today()->diffInDays($dl, false);
+                                                $dlCompleted = in_array($sp3->form->status, ['selesai', 'ditolak']);
+                                            @endphp
+                                            @if(!$dlCompleted)
+                                                @if($dlDays < 0)
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 border border-red-200">{{ abs($dlDays) }} hari terlambat</span>
+                                                @elseif($dlDays == 0)
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-200">Hari ini!</span>
+                                                @elseif($dlDays <= 3)
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">{{ $dlDays }} hari lagi</span>
+                                                @else
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">{{ $dlDays }} hari lagi</span>
+                                                @endif
+                                            @endif
                                         </p>
                                     </div>
                                     <div class="flex flex-col items-end gap-1 min-w-[120px]">
@@ -153,6 +169,11 @@
                 @else
                     <div class="space-y-3">
                         @foreach($historySp3s as $sp3)
+                            @php
+                                $dl = \Carbon\Carbon::parse($sp3->form->deadline_date);
+                                $dlDays = \Carbon\Carbon::today()->diffInDays($dl, false);
+                                $dlCompleted = in_array($sp3->form->status, ['selesai', 'ditolak']);
+                            @endphp
                             <div class="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between gap-3 shadow-sm">
                                 <div>
                                     <div class="flex items-center gap-2 flex-wrap">
@@ -163,10 +184,118 @@
                                         No. Terima: {{ $sp3->form->no_terima_sampel ?? '-' }}
                                     </p>
                                 </div>
-                                <span class="px-3 py-1 rounded-full text-xs font-semibold
-                                    {{ $sp3->form->status === 'selesai' ? 'bg-green-100 text-green-700' : 'bg-indigo-100 text-indigo-700' }}">
-                                    {{ \App\Models\FormVerification::getStatusLabel($sp3->form->status) }}
-                                </span>
+                                <div class="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+                                    {{-- Sisa Waktu badge — visible on card --}}
+                                    @if($dlCompleted)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">Selesai</span>
+                                    @elseif($dlDays < 0)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 border border-red-200">{{ abs($dlDays) }} hari terlambat</span>
+                                    @elseif($dlDays == 0)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-200">Hari ini!</span>
+                                    @elseif($dlDays <= 3)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">{{ $dlDays }} hari lagi</span>
+                                    @else
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">{{ $dlDays }} hari lagi</span>
+                                    @endif
+                                    <span class="px-3 py-1 rounded-full text-xs font-semibold
+                                        {{ $sp3->form->status === 'selesai' ? 'bg-green-100 text-green-700' : 'bg-indigo-100 text-indigo-700' }}">
+                                        {{ \App\Models\FormVerification::getStatusLabel($sp3->form->status) }}
+                                    </span>
+                                    <button onclick="openRiwayatModal('modal-{{ $sp3->id }}')"
+                                            class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors">
+                                        Detail
+                                    </button>
+                                </div>
+                            </div>
+
+                            {{-- Modal for this SP3 --}}
+                            <div id="modal-{{ $sp3->id }}"
+                                 class="fixed inset-0 z-50 hidden flex items-center justify-center p-4"
+                                 onclick="closeRiwayatModal(event, 'modal-{{ $sp3->id }}')">
+                                <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+                                <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+                                    {{-- Modal Header --}}
+                                    <div class="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-start justify-between rounded-t-2xl">
+                                        <div>
+                                            <h3 class="font-bold text-gray-900 text-lg">{{ $sp3->sp3_number }}</h3>
+                                            <p class="text-sm text-gray-500">{{ $sp3->parameter->name ?? '-' }} &bull; {{ $sp3->form->no_terima_sampel ?? '-' }}</p>
+                                        </div>
+                                        <button onclick="closeRiwayatModalById('modal-{{ $sp3->id }}')"
+                                                class="ml-4 text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+                                    </div>
+
+                                    {{-- Modal Body --}}
+                                    <div class="px-6 py-4 space-y-4">
+                                        {{-- Deadline & Sisa Waktu --}}
+                                        <div class="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
+                                            <div>
+                                                <p class="text-xs text-gray-500">Deadline</p>
+                                                <p class="font-semibold text-gray-800">{{ $dl->format('d M Y') }}</p>
+                                            </div>
+                                            <div class="text-right">
+                                                <p class="text-xs text-gray-500 mb-1">Sisa Waktu</p>
+                                                @if($dlCompleted)
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">Selesai</span>
+                                                @elseif($dlDays < 0)
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 border border-red-200">{{ abs($dlDays) }} hari terlambat</span>
+                                                @elseif($dlDays == 0)
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-200">Hari ini!</span>
+                                                @elseif($dlDays <= 3)
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">{{ $dlDays }} hari lagi</span>
+                                                @else
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">{{ $dlDays }} hari lagi</span>
+                                                @endif
+                                            </div>
+                                        </div>
+
+                                        {{-- Status Form --}}
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-xs text-gray-500">Status Form:</span>
+                                            <span class="px-3 py-1 rounded-full text-xs font-semibold
+                                                {{ $sp3->form->status === 'selesai' ? 'bg-green-100 text-green-700' : 'bg-indigo-100 text-indigo-700' }}">
+                                                {{ \App\Models\FormVerification::getStatusLabel($sp3->form->status) }}
+                                            </span>
+                                        </div>
+
+                                        {{-- Results inputted by this analyst --}}
+                                        <div>
+                                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Hasil Input Anda</p>
+                                            @if($sp3->sampleParameters->isEmpty())
+                                                <p class="text-sm text-gray-400 italic">Tidak ada data hasil.</p>
+                                            @else
+                                                <div class="divide-y divide-gray-100 rounded-xl border border-gray-100 overflow-hidden">
+                                                    @foreach($sp3->sampleParameters as $sp)
+                                                        <div class="flex items-center justify-between px-4 py-3 bg-gray-50/50">
+                                                            <div>
+                                                                <p class="text-sm font-medium text-gray-800">{{ $sp->sample->sample_name ?? '-' }}</p>
+                                                                <p class="text-xs text-gray-400 font-mono">{{ $sp->sample->sample_code ?? '-' }}</p>
+                                                            </div>
+                                                            <div class="text-right">
+                                                                @if($sp->analysisResult)
+                                                                    <p class="text-sm font-bold text-gray-900">
+                                                                        {{ $sp->analysisResult->result_value }}
+                                                                        @if($sp->analysisResult->result_unit)
+                                                                            <span class="text-xs font-normal text-gray-500">{{ $sp->analysisResult->result_unit }}</span>
+                                                                        @endif
+                                                                    </p>
+                                                                    @if($sp->analysisResult->notes)
+                                                                        <p class="text-xs text-gray-400">{{ $sp->analysisResult->notes }}</p>
+                                                                    @endif
+                                                                @else
+                                                                    <span class="text-xs text-gray-400 italic">Belum ada hasil</span>
+                                                                @endif
+                                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium mt-1
+                                                                    {{ $sp->status === 'done' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600' }}">
+                                                                    {{ $sp->status === 'done' ? 'Selesai' : 'Pending' }}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         @endforeach
                     </div>
@@ -185,6 +314,22 @@
                 btn.classList.toggle('border-transparent', t !== name);
                 btn.classList.toggle('text-gray-500', t !== name);
             });
+        }
+
+        function openRiwayatModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+        }
+
+        function closeRiwayatModalById(id) {
+            document.getElementById(id).classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+        }
+
+        function closeRiwayatModal(event, id) {
+            if (event.target === document.getElementById(id) || event.target.classList.contains('absolute')) {
+                closeRiwayatModalById(id);
+            }
         }
     </script>
 </x-app-layout>

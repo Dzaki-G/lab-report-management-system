@@ -35,6 +35,9 @@
                 $pendingCnt  = $totalSp3 - $approvedCnt - $rejectedCnt;
                 $allApproved = $totalSp3 > 0 && $approvedCnt === $totalSp3;
                 $lhpGenerated = !empty($form->lhp_google_file_id);
+                $lhpStatus = $form->lhp_generation_status;
+                $lhpGenerating = in_array($lhpStatus, ['queued', 'processing']);
+                $lhpFailed = $lhpStatus === 'failed';
             @endphp
             <div class="bg-white shadow-sm sm:rounded-lg p-5">
                 <div class="flex flex-wrap items-center justify-between gap-4">
@@ -61,6 +64,26 @@
                                class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg font-medium transition">
                                 📄 Buka LHP
                             </a>
+                        @elseif($lhpGenerating)
+                            <button type="button" disabled id="lhp-generating-btn"
+                                    class="px-4 py-2 bg-amber-500 text-white text-sm rounded-lg font-medium cursor-not-allowed flex items-center gap-2">
+                                <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                </svg>
+                                Sedang digenerate...
+                            </button>
+                        @elseif($lhpFailed)
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm text-red-600">⚠ Generate gagal</span>
+                                <form method="POST" action="{{ route('kepala-divisi.generate-lhp', $form) }}">
+                                    @csrf
+                                    <button type="submit"
+                                            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg font-medium transition">
+                                        ↺ Coba Lagi
+                                    </button>
+                                </form>
+                            </div>
                         @elseif($allApproved)
                             <form method="POST" action="{{ route('kepala-divisi.generate-lhp', $form) }}">
                                 @csrf
@@ -268,6 +291,38 @@
             </form>
         </div>
     </div>
+
+    @if($lhpGenerating)
+    <script>
+        (function () {
+            const statusUrl = "{{ route('kepala-divisi.lhp-status', $form) }}";
+            let delay = 3000;
+            const maxDelay = 12000;
+            let attempts = 0;
+            const maxAttempts = 40;
+
+            function poll() {
+                if (attempts++ >= maxAttempts) return;
+                fetch(statusUrl, { headers: { 'Accept': 'application/json' } })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.status === 'completed' || data.status === 'failed' || data.lhp_file_id) {
+                            location.reload();
+                            return;
+                        }
+                        delay = Math.min(delay * 1.4, maxDelay);
+                        setTimeout(poll, delay);
+                    })
+                    .catch(() => {
+                        delay = Math.min(delay * 1.4, maxDelay);
+                        setTimeout(poll, delay);
+                    });
+            }
+
+            setTimeout(poll, delay);
+        })();
+    </script>
+    @endif
 
     <script>
         function openApproveModal(actionUrl, spNumber) {

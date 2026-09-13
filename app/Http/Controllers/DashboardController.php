@@ -279,6 +279,7 @@ class DashboardController extends Controller
             'dalam_pengujian'        => 'Dalam Pengujian',
             'menunggu_review_divisi' => 'Menunggu Review Divisi',
             'ttd_upa'                => 'Menunggu TTD Kepala UPA',
+            'kirim_customer'         => 'Siap Kirim ke Customer',
             'selesai'                => 'Selesai',
         ];
 

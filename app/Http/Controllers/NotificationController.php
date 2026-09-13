@@ -63,8 +63,13 @@ class NotificationController extends Controller
             $formId = $notification->data['form_id'];
             $form = \App\Models\FormPengujian::find($formId);
             if ($form) {
-                if (auth()->user()->role_id == \App\Enums\Role::ANALIS) {
+                $role = auth()->user()->role_id;
+                if ($role == \App\Enums\Role::ANALIS) {
                     return redirect()->route('analis.form.show', $formId);
+                } elseif ($role == \App\Enums\Role::KEPALA_DIVISI) {
+                    return redirect()->route('kepala-divisi.show', $form);
+                } elseif ($role == \App\Enums\Role::KEPALA_UPA) {
+                    return redirect()->route('kepala-upa.show', $form);
                 } else {
                     return redirect()->route('form-list.show', $formId);
                 }
