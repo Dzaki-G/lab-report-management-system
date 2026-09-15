@@ -265,7 +265,7 @@
                             <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                             Dokumen SP3 ({{ $form->sp3Documents->count() }})
                         </h3>
-                        <p class="text-sm font-medium text-gray-500 mb-6">Isi No. SPPP dan Instruksi Kerja untuk setiap SP3.</p>
+                        <p class="text-sm font-medium text-gray-500 mb-6">Isi No. SP3 dan Instruksi Kerja untuk setiap SP3.</p>
 
                         <div class="space-y-6">
                             @foreach($form->sp3Documents as $sp3)
@@ -310,6 +310,54 @@
                                             </div>
                                         @endif
                                     </div>
+
+                                    {{-- Admin: assign analyst + view tracking --}}
+                                    @if(auth()->user()->role_id === \App\Enums\Role::ADMIN)
+                                        <div class="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4 bg-indigo-50/60 p-4 rounded-lg border border-indigo-100">
+                                            {{-- Assignment form --}}
+                                            <form action="{{ route('admin.assign-analyst', $sp3) }}" method="POST" class="flex flex-col gap-2">
+                                                @csrf
+                                                <label class="text-xs font-bold text-gray-600 uppercase tracking-wide">Tugaskan Analis</label>
+                                                <div class="flex gap-2">
+                                                    <select name="analyst_id" class="flex-1 text-sm border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white shadow-sm">
+                                                        <option value="">— Belum ditugaskan —</option>
+                                                        @foreach($analysts as $analyst)
+                                                            <option value="{{ $analyst->user_id }}"
+                                                                {{ $sp3->assigned_analyst_id == $analyst->user_id ? 'selected' : '' }}>
+                                                                {{ $analyst->full_name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                    <button type="submit" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap">
+                                                        Tugaskan
+                                                    </button>
+                                                </div>
+                                            </form>
+
+                                            {{-- View tracking status --}}
+                                            <div class="flex flex-col gap-1 justify-center">
+                                                <p class="text-xs font-bold text-gray-600 uppercase tracking-wide">Status Lihat</p>
+                                                @if($sp3->assigned_analyst_id)
+                                                    @if($sp3->first_viewed_at)
+                                                        <div class="flex items-center gap-1.5">
+                                                            <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                                                            <span class="text-sm font-medium text-emerald-700">Sudah dilihat</span>
+                                                        </div>
+                                                        <p class="text-xs text-gray-500 pl-3.5">Pertama: {{ $sp3->first_viewed_at->format('d M Y H:i') }}</p>
+                                                        <p class="text-xs text-gray-500 pl-3.5">Terakhir: {{ $sp3->last_viewed_at->format('d M Y H:i') }}</p>
+                                                    @else
+                                                        <div class="flex items-center gap-1.5">
+                                                            <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+                                                            <span class="text-sm font-medium text-amber-700">Belum dilihat</span>
+                                                        </div>
+                                                        <p class="text-xs text-gray-400 pl-3.5">Ditugaskan ke {{ $sp3->assignedAnalyst?->full_name }}</p>
+                                                    @endif
+                                                @else
+                                                    <span class="text-sm text-gray-400 italic">Belum ada analis ditugaskan</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endif
 
                                     <form action="{{ route('admin.update-sp3-info', $sp3) }}" method="POST"
                                           class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end bg-white p-4 rounded-lg border border-gray-100 shadow-sm">

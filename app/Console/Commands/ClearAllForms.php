@@ -24,12 +24,15 @@ class ClearAllForms extends Command
 
     $tables = [
         'analysis_results',
+        'sp3_samples',
         'sample_parameters',
         'samples',
         'form_verifications',
         'sp3_documents',
         'notifications',
         'form_pengujian',
+        'jobs',
+        'failed_jobs',
     ];
 
     foreach ($tables as $table) {

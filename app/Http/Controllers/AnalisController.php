@@ -23,20 +23,23 @@ class AnalisController extends Controller
     {
         $userId = auth()->user()->user_id;
 
-        // Active SP3s — form in testing, grouped by SP3
-        $activeSp3s = Sp3Document::with(['form', 'parameter', 'samples'])
-        ->whereHas('form', fn ($q) => $q->where('status', 'dalam_pengujian'))
-        ->latest()
-        ->get()
-        ->map(function ($sp3) {
-            $sp3->setRelation('sampleParameters',
-                \App\Models\SampleParameter::with(['sample', 'analysisResult', 'filledByAnalyst'])
-                    ->whereIn('sample_id', $sp3->samples->pluck('id'))
-                    ->where('parameter_id', $sp3->parameter_id)
-                    ->get()
-            );
-            return $sp3;
-        });
+        $allActiveSp3s = Sp3Document::with(['form', 'parameter', 'samples'])
+            ->whereHas('form', fn ($q) => $q->where('status', 'dalam_pengujian'))
+            ->latest()
+            ->get()
+            ->map(function ($sp3) use ($userId) {
+                $sp3->setRelation('sampleParameters',
+                    \App\Models\SampleParameter::with(['sample', 'analysisResult', 'filledByAnalyst'])
+                        ->whereIn('sample_id', $sp3->samples->pluck('id'))
+                        ->where('parameter_id', $sp3->parameter_id)
+                        ->get()
+                );
+                return $sp3;
+            });
+
+        // Split: assigned to me vs unassigned (SP3s assigned to others are hidden)
+        $mySp3s          = $allActiveSp3s->where('assigned_analyst_id', $userId)->values();
+        $unassignedSp3s  = $allActiveSp3s->whereNull('assigned_analyst_id')->values();
 
         // History — SP3s where this analyst filled at least one result, form moved on
         $historySp3s = Sp3Document::with(['form', 'parameter', 'samples'])
@@ -56,7 +59,7 @@ class AnalisController extends Controller
                 return $sp3;
             });
 
-        return view('analis.dashboard', compact('activeSp3s', 'historySp3s'));
+        return view('analis.dashboard', compact('mySp3s', 'unassignedSp3s', 'historySp3s'));
     }
 
     /**
@@ -83,9 +86,16 @@ class AnalisController extends Controller
     {
         $sampleParameter->load(['sample.form', 'parameter', 'analysisResult']);
 
+        // Stamp view on the SP3 for this parameter if this analyst is assigned
+        $sp3 = Sp3Document::where('form_pengujian_id', $sampleParameter->sample->form->id)
+            ->where('parameter_id', $sampleParameter->parameter_id)
+            ->first();
+        if ($sp3) {
+            $this->recordSp3View($sp3);
+        }
+
         $units = Unit::orderBy('name')->get();
 
-        // Pre-fill defaults from parameter
         $defaultInstrument = $sampleParameter->analysisResult?->instrument
             ?? $sampleParameter->parameter?->instrument
             ?? '';
@@ -204,6 +214,21 @@ class AnalisController extends Controller
     {
         $sp3->load(['form', 'parameter', 'samples']);
 
+        $this->recordSp3View($sp3);
+
         return view('analis.sp3-detail', compact('sp3'));
+    }
+
+    private function recordSp3View(Sp3Document $sp3): void
+    {
+        if ((int) $sp3->assigned_analyst_id !== (int) auth()->user()->user_id) {
+            return;
+        }
+
+        if (is_null($sp3->first_viewed_at)) {
+            $sp3->first_viewed_at = now();
+        }
+        $sp3->last_viewed_at = now();
+        $sp3->saveQuietly();
     }
 }

@@ -17,7 +17,7 @@ class RoleMiddleware
             abort(403);
         }
 
-        if (!in_array($user->role_id, $roles)) {
+        if (!in_array((int) $user->role_id, array_map('intval', $roles))) {
             abort(403);
         }
 

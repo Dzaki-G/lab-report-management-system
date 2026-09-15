@@ -128,7 +128,8 @@ class FormListController extends Controller
             'samples.sampleParameters.analysisResult',
             'admin',
             'verifications.verifier',
-            'sp3Documents'
+            'sp3Documents.parameter',
+            'sp3Documents.assignedAnalyst',
         ]);
 
         return view('form-list.show', compact('form'));

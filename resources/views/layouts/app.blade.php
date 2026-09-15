@@ -24,7 +24,7 @@
             }
         </style>
     </head>
-    <body class="font-sans antialiased text-gray-900 selection:bg-indigo-500 selection:text-white" x-data="{ sidebarOpen: false }">
+    <body class="font-sans antialiased text-gray-900 selection:bg-indigo-500 selection:text-white" x-data="{ sidebarOpen: false, sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true' }" x-init="$watch('sidebarCollapsed', val => localStorage.setItem('sidebarCollapsed', val))">
         <div class="flex h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-100">
             <!-- Sidebar Navigation (Include) -->
             @include('layouts.navigation')

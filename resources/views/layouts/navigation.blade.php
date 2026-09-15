@@ -2,7 +2,9 @@
 <div x-show="sidebarOpen" x-transition.opacity class="fixed inset-0 z-40 bg-gray-900/50 backdrop-blur-sm lg:hidden" @click="sidebarOpen = false" style="display: none;"></div>
 
 <!-- Sidebar Layout -->
-<aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'" class="fixed inset-y-0 left-0 z-50 w-72 bg-[#d1dff6] border-r border-[#bbcae5] transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 flex flex-col shadow-2xl lg:shadow-none">
+<aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+       :style="(sidebarCollapsed && window.matchMedia('(min-width: 1024px)').matches) ? 'width:0;min-width:0;overflow:hidden' : ''"
+       class="fixed inset-y-0 left-0 z-50 w-72 bg-[#d1dff6] border-r border-[#bbcae5] transition-all duration-300 ease-in-out lg:static lg:translate-x-0 flex flex-col shadow-2xl lg:shadow-none">
     <!-- Logo area -->
     <div class="h-16 flex items-center justify-between px-6 bg-white/40 border-b border-[#bbcae5]">
         <a href="{{ route('dashboard') }}" class="flex items-center gap-3">
@@ -99,6 +101,12 @@
                 <svg class="w-5 h-5 mr-3 {{ request()->routeIs('statistics.*') ? 'text-blue-200' : 'text-[#4299e1] group-hover:text-[#2b6cb0]' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                 {{ __('Statistik Pengujian') }}
             </a>
+            @if($userRole === \App\Enums\Role::ADMIN)
+                <a href="{{ route('admin.monitoring') }}" class="{{ $linkClass }} {{ request()->routeIs('admin.monitoring') ? $activeClass : $inactiveClass }}">
+                    <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.monitoring') ? 'text-blue-200' : 'text-[#4299e1] group-hover:text-[#2b6cb0]' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    {{ __('Monitoring Analis') }}
+                </a>
+            @endif
         @endif
 
         {{-- Analis Menu --}}

@@ -176,14 +176,12 @@
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50/80 border-b border-gray-200">
                                 <tr>
-                                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">No. Terima Sampel</th>
-                                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Customer</th>
-                                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Masuk</th>
-                                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Deadline</th>
-                                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Sisa Waktu</th>
-                                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Sampel</th>
-                                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Aksi</th>
+                                    <th class="px-4 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">No. Terima Sampel</th>
+                                    <th class="px-4 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Masuk</th>
+                                    <th class="px-4 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Deadline</th>
+                                    <th class="px-4 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Sisa Waktu</th>
+                                    <th class="px-4 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-4 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -204,26 +202,19 @@
                                         ];
                                     @endphp
                                     <tr class="hover:bg-indigo-50/30 transition-colors duration-150 group">
-                                        <td class="px-6 py-4 whitespace-nowrap">
+                                        <td class="px-4 py-4 whitespace-nowrap">
                                             <div class="font-semibold text-gray-900">{{ $form->no_terima_sampel ?? '-' }}</div>
                                             @if($form->lhp_number)
                                                 <div class="text-xs text-indigo-600 mt-1 font-mono">{{ $form->lhp_number }}</div>
                                             @endif
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-gray-700 font-medium">
-                                            @if(auth()->user()->role_id == \App\Enums\Role::ANALIS)
-                                                <span class="text-gray-400 italic">*** Dirahasiakan ***</span>
-                                            @else
-                                                {{ $form->customer_name }}
-                                            @endif
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {{ \Carbon\Carbon::parse($form->received_date)->format('d M Y') }}
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm {{ $isOverdue && !$isCompleted ? 'text-red-600 font-bold' : 'text-gray-500' }}">
+                                        <td class="px-4 py-4 whitespace-nowrap text-sm {{ $isOverdue && !$isCompleted ? 'text-red-600 font-bold' : 'text-gray-500' }}">
                                             {{ $deadline->format('d M Y') }}
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
+                                        <td class="px-4 py-4 whitespace-nowrap">
                                             @if($isCompleted)
                                                 <span class="text-sm text-gray-300">-</span>
                                             @elseif($isOverdue)
@@ -244,16 +235,13 @@
                                                 </span>
                                             @endif
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-xs font-bold text-gray-600">{{ $form->samples->count() }}</span>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
+                                        <td class="px-4 py-4 whitespace-nowrap">
                                             <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold shadow-sm {{ $statusColors[$form->status] ?? 'bg-gray-100 text-gray-800' }}">
                                                 {{ $form->status_label }}
                                             </span>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <a href="{{ route('form-list.show', $form) }}" 
+                                        <td class="px-4 py-4 whitespace-nowrap">
+                                            <a href="{{ route('form-list.show', $form) }}"
                                                class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-900 text-sm font-semibold transition-colors group-hover:underline">
                                                 Lihat Detail
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>

@@ -346,7 +346,7 @@
                             <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                             Dokumen SP3 ({{ $form->sp3Documents->count() }})
                         </h3>
-                        <p class="text-sm font-medium text-gray-500 mb-6">Sebagai Admin, Anda dapat mengisi No. SPPP dan Instruksi Kerja untuk setiap SP3 dari halaman ini.</p>
+                        <p class="text-sm font-medium text-gray-500 mb-6">Sebagai Admin, Anda dapat mengisi No. SP3 dan Instruksi Kerja untuk setiap SP3 dari halaman ini.</p>
 
                         <div class="space-y-6">
                             @foreach($form->sp3Documents as $sp3)
@@ -368,11 +368,44 @@
                                         @endif
                                     </div>
 
+                                    {{-- Monitoring: assigned analyst + view tracking (admin only) --}}
+                                    @if(auth()->user()->role_id == \App\Enums\Role::ADMIN)
+                                        <div class="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4 bg-indigo-50/60 p-4 rounded-lg border border-indigo-100">
+                                            <div>
+                                                <p class="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Analis Ditugaskan</p>
+                                                @if($sp3->assignedAnalyst)
+                                                    <p class="text-sm font-medium text-gray-800">{{ $sp3->assignedAnalyst->full_name }}</p>
+                                                @else
+                                                    <p class="text-sm text-gray-400 italic">Belum ditugaskan</p>
+                                                @endif
+                                            </div>
+                                            <div>
+                                                <p class="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Status Lihat</p>
+                                                @if($sp3->assigned_analyst_id)
+                                                    @if($sp3->first_viewed_at)
+                                                        <div class="flex items-center gap-1.5">
+                                                            <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                                                            <span class="text-sm font-medium text-emerald-700">Sudah dilihat</span>
+                                                        </div>
+                                                        <p class="text-xs text-gray-500 pl-3.5">{{ $sp3->first_viewed_at->format('d M Y H:i') }}</p>
+                                                    @else
+                                                        <div class="flex items-center gap-1.5">
+                                                            <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+                                                            <span class="text-sm font-medium text-amber-700">Belum dilihat</span>
+                                                        </div>
+                                                    @endif
+                                                @else
+                                                    <span class="text-sm text-gray-400 italic">—</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endif
+
                                     <form action="{{ route('admin.update-sp3-info', $sp3) }}" method="POST" 
                                           class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
                                         @csrf
                                         <div>
-                                            <label class="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">No. SPPP</label>
+                                            <label class="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">No. SP3</label>
                                             <input type="text" name="no_sppp" value="{{ $sp3->no_sppp }}"
                                                    placeholder="001/SPPP/..."
                                                    class="w-full text-sm font-medium bg-gray-50 border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm">

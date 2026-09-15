@@ -243,10 +243,58 @@ class FormPengujianController extends Controller
             'samples.sampleParameters.parameter',
             'samples.sampleParameters.filledByAnalyst',
             'samples.sampleParameters.analysisResult',
-            'sp3Documents.parameter'
+            'sp3Documents.parameter',
+            'sp3Documents.assignedAnalyst'
         );
 
-        return view('form.show', compact('form'));
+        $analysts = \App\Models\User::where('role_id', Role::ANALIS)
+            ->where('is_active', true)
+            ->orderBy('full_name')
+            ->get();
+
+        return view('form.show', compact('form', 'analysts'));
+    }
+
+    public function assignAnalyst(Request $request, Sp3Document $sp3)
+    {
+        $request->validate([
+            'analyst_id' => 'nullable|exists:users,user_id',
+        ]);
+
+        $analystId = $request->analyst_id ?: null;
+
+        // Verify it's an active analis if provided
+        if ($analystId) {
+            $analyst = \App\Models\User::where('user_id', $analystId)
+                ->where('role_id', Role::ANALIS)
+                ->where('is_active', true)
+                ->firstOrFail();
+        }
+
+        // Reset view stamps on reassignment
+        $sp3->update([
+            'assigned_analyst_id' => $analystId,
+            'assigned_at'         => $analystId ? now() : null,
+            'first_viewed_at'     => null,
+            'last_viewed_at'      => null,
+        ]);
+
+        // Notify the newly assigned analyst directly (single user, not whole role)
+        if ($analystId) {
+            $form = $sp3->formPengujian;
+            $notificationService = new NotificationService();
+            $notificationService->create(
+                $analystId,
+                'form_pending',
+                'SP3 Ditugaskan ke Anda',
+                "Anda ditugaskan untuk SP3 {$sp3->sp3_number} (Parameter: {$sp3->parameter?->name}) pada form {$form->form_number}.",
+                ['form_id' => $form->id]
+            );
+        }
+
+        return back()->with('success', $analystId
+            ? 'Analis berhasil ditugaskan ke SP3 ' . $sp3->sp3_number . '.'
+            : 'Penugasan analis pada SP3 ' . $sp3->sp3_number . ' dibatalkan.');
     }
 
     public function edit(FormPengujian $form)

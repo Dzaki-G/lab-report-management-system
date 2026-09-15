@@ -5,6 +5,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\FormPengujianController;
 use App\Http\Controllers\SampleController;
 use App\Http\Controllers\UnitController;
+use App\Http\Controllers\MonitoringController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Enums\Role;
@@ -35,7 +36,7 @@ Route::middleware('auth')->group(function () {
 });
 
 // Form List, Detail Form, & Statistik accessible by Admin and Kepala UPA
-Route::middleware(['auth', 'role:' . Role::ADMIN . ',' . Role::KEPALA_UPA])->group(function () {
+Route::middleware(['auth', 'role:' . Role::SUPER_ADMIN . ',' . Role::ADMIN . ',' . Role::KEPALA_UPA . ',' . Role::KEPALA_DIVISI])->group(function () {
     // Semua Form (arsip lintas role)
     Route::get('/semua-form', [\App\Http\Controllers\FormListController::class, 'index'])
         ->name('form-list.index');
@@ -91,6 +92,14 @@ Route::middleware(['auth', 'role:' . Role::ADMIN])->group(function () {
     // Delete form (Admin only) - removes form + all Google Docs
     Route::delete('/form-pengujian/{form}', [FormPengujianController::class, 'destroy'])
         ->name('form.destroy');
+
+    // Admin monitoring — analyst workload overview
+    Route::get('/admin/monitoring', [MonitoringController::class, 'index'])
+        ->name('admin.monitoring');
+
+    // Admin assign analyst to SP3
+    Route::post('/sp3/{sp3}/assign-analyst', [FormPengujianController::class, 'assignAnalyst'])
+        ->name('admin.assign-analyst');
 
     // Admin update SP3 SPPP & IK
     Route::post('/sp3/{sp3}/update-info', [FormPengujianController::class, 'updateSp3Info'])

@@ -228,14 +228,14 @@ class StatisticController extends Controller
         foreach ($analysts as $analyst) {
             $activeQuery = SampleParameter::join('samples', 'sample_parameters.sample_id', '=', 'samples.id')
                 ->join('form_pengujian', 'samples.form_pengujian_id', '=', 'form_pengujian.id')
-                ->where('sample_parameters.assigned_analyst_id', $analyst->user_id)
+                ->where('sample_parameters.filled_by_analyst_id', $analyst->user_id)
                 ->whereIn('sample_parameters.status', ['pending', 'in_progress']);
             $activeQuery = $applyPeriodFilter($activeQuery, 'form_pengujian.received_date');
             $activeCount = $activeQuery->count();
 
             $completedQuery = SampleParameter::join('samples', 'sample_parameters.sample_id', '=', 'samples.id')
                 ->join('form_pengujian', 'samples.form_pengujian_id', '=', 'form_pengujian.id')
-                ->where('sample_parameters.assigned_analyst_id', $analyst->user_id)
+                ->where('sample_parameters.filled_by_analyst_id', $analyst->user_id)
                 ->where('sample_parameters.status', 'done');
             $completedQuery = $applyPeriodFilter($completedQuery, 'form_pengujian.received_date');
             $completedCount = $completedQuery->count();

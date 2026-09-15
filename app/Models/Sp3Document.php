@@ -18,29 +18,33 @@ class Sp3Document extends Model
     protected $fillable = [
         'form_pengujian_id',
         'parameter_id',
+        'assigned_analyst_id',
+        'assigned_at',
+        'first_viewed_at',
+        'last_viewed_at',
         'sp3_number',
         'no_sppp',
         'ik',
         'google_doc_id',
         'google_doc_url',
         'status',
-        // Review / rejection tracking (per-SP3, replaces old needs_revision/revision_note)
-        'review_status', // pending | rejected | resubmitted | approved
+        'review_status',
         'rejection_note',
         'rejected_at',
         'rejected_by',
-        // LCP — optional, non-blocking, addable any time
         'lcp_google_file_id',
         'lcp_google_file_url',
         'lcp_uploaded_at',
-        // Async generation tracking
         'doc_generation_status',
         'doc_generation_error',
     ];
 
     protected $casts = [
         'lcp_uploaded_at' => 'datetime',
-        'rejected_at' => 'datetime',
+        'rejected_at'     => 'datetime',
+        'assigned_at'     => 'datetime',
+        'first_viewed_at' => 'datetime',
+        'last_viewed_at'  => 'datetime',
     ];
 
     public function formPengujian()
@@ -57,6 +61,11 @@ class Sp3Document extends Model
     public function parameter()
     {
         return $this->belongsTo(Parameter::class);
+    }
+
+    public function assignedAnalyst()
+    {
+        return $this->belongsTo(User::class, 'assigned_analyst_id', 'user_id');
     }
 
     public function rejectedByUser()
