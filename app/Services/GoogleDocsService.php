@@ -872,10 +872,14 @@ class GoogleDocsService
                                 'paddingBottom' => ['magnitude' => $paddingPt, 'unit' => 'PT'],
                             ],
                             'fields' => 'paddingTop,paddingBottom',
-                            'tableCellLocation' => [
-                                'tableStartLocation' => ['index' => $tableStartIndex],
-                                'rowIndex' => $rowIdx,
-                                'columnIndex' => $colIdx,
+                            'tableRange' => [
+                                'tableCellLocation' => [
+                                    'tableStartLocation' => ['index' => $tableStartIndex],
+                                    'rowIndex' => $rowIdx,
+                                    'columnIndex' => $colIdx,
+                                ],
+                                'rowSpan' => 1,
+                                'columnSpan' => 1,
                             ],
                         ],
                     ]);
