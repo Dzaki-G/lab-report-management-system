@@ -138,6 +138,38 @@
             </div>
         </div>
 
+            {{-- SP3 Documents --}}
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mt-6">
+                <div class="p-6">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">Dokumen SP3</h3>
+                    <div class="space-y-3">
+                        @foreach($form->sp3Documents as $sp3)
+                            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                <div>
+                                    <p class="font-medium text-gray-800">{{ $sp3->sp3_number }}</p>
+                                    <p class="text-sm text-gray-500">Parameter: {{ $sp3->parameter->name ?? '-' }}</p>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    @if($sp3->google_doc_id)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Sudah digenerate</span>
+                                        <a href="{{ $sp3->google_doc_url }}" target="_blank"
+                                           class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md font-medium">
+                                            Lihat SP3
+                                        </a>
+                                    @elseif($sp3->doc_generation_status === 'processing' || $sp3->doc_generation_status === 'queued')
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Sedang diproses...</span>
+                                    @elseif($sp3->doc_generation_status === 'failed')
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Gagal digenerate</span>
+                                    @else
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Belum digenerate</span>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+
             {{-- LCP Links per SP3 --}}
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mt-6">
                 <div class="p-6">

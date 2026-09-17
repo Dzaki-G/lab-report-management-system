@@ -26,8 +26,8 @@
         </div>
 
         {{-- Menunggu Dikirim --}}
-        <div class="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-100">
-            <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-3">
                 <h3 class="text-base font-semibold text-gray-800">Menunggu Dikirim</h3>
                 @if($ready->isNotEmpty())
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
@@ -42,34 +42,34 @@
                 </div>
             @else
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-100 text-sm">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">No. Terima / LHP</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Customer</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Deadline</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">TTD UPA</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Aksi</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No. Terima / LHP</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deadline</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TTD UPA</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100 bg-white">
+                        <tbody class="bg-white divide-y divide-gray-200">
                             @foreach($ready as $form)
                                 <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="px-4 py-3">
-                                        <p class="font-medium text-gray-800">{{ $form->no_terima_sampel ?? '-' }}</p>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <p class="font-medium text-gray-900">{{ $form->no_terima_sampel ?? '-' }}</p>
                                         <p class="text-xs text-gray-400 mt-0.5">{{ $form->lhp_number ?? 'No LHP belum diset' }}</p>
                                     </td>
-                                    <td class="px-4 py-3">
-                                        <p class="font-medium text-gray-800">{{ $form->customer_name ?? '-' }}</p>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <p class="font-medium text-gray-900">{{ $form->customer_name ?? '-' }}</p>
                                         <p class="text-xs text-gray-400 mt-0.5">{{ $form->customer_phone ?? '' }}</p>
                                     </td>
-                                    <td class="px-4 py-3 text-gray-600">
+                                    <td class="px-6 py-4 whitespace-nowrap text-gray-600">
                                         {{ \Carbon\Carbon::parse($form->deadline_date)->format('d M Y') }}
                                     </td>
-                                    <td class="px-4 py-3 text-gray-500 text-xs">
+                                    <td class="px-6 py-4 whitespace-nowrap text-gray-600 text-xs">
                                         {{ $form->lhp_signed_upa_at ? \Carbon\Carbon::parse($form->lhp_signed_upa_at)->format('d M Y H:i') : '-' }}
                                     </td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center gap-2 flex-wrap">
                                             @if($form->lhp_google_file_id)
                                                 <a href="https://docs.google.com/document/d/{{ $form->lhp_google_file_id }}/export?format=pdf"
@@ -104,8 +104,8 @@
         </div>
 
         {{-- Baru Diselesaikan --}}
-        <div class="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-100">
-            <div class="px-6 py-4 border-b border-gray-100">
+        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
                 <h3 class="text-base font-semibold text-gray-800">Baru Diselesaikan</h3>
                 <p class="text-xs text-gray-400 mt-0.5">20 form terakhir yang sudah dikirim ke customer</p>
             </div>
@@ -114,30 +114,30 @@
                 <div class="px-6 py-12 text-center text-gray-400 italic text-sm">Belum ada form yang selesai.</div>
             @else
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-100 text-sm">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">No. Terima / LHP</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Customer</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Selesai</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">LHP</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No. Terima / LHP</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Selesai</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LHP</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100 bg-white">
+                        <tbody class="bg-white divide-y divide-gray-200">
                             @foreach($recentDone as $form)
                                 <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="px-4 py-3">
-                                        <p class="font-medium text-gray-800">{{ $form->no_terima_sampel ?? '-' }}</p>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <p class="font-medium text-gray-900">{{ $form->no_terima_sampel ?? '-' }}</p>
                                         <p class="text-xs text-gray-400 mt-0.5">{{ $form->lhp_number ?? '-' }}</p>
                                     </td>
-                                    <td class="px-4 py-3">
-                                        <p class="text-gray-800">{{ $form->customer_name ?? '-' }}</p>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <p class="text-gray-900">{{ $form->customer_name ?? '-' }}</p>
                                         <p class="text-xs text-gray-400 mt-0.5">{{ $form->customer_phone ?? '' }}</p>
                                     </td>
-                                    <td class="px-4 py-3 text-gray-500 text-xs">
+                                    <td class="px-6 py-4 whitespace-nowrap text-gray-600 text-xs">
                                         {{ \Carbon\Carbon::parse($form->updated_at)->format('d M Y H:i') }}
                                     </td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-6 py-4 whitespace-nowrap">
                                         @if($form->lhp_google_file_id)
                                             <a href="https://docs.google.com/document/d/{{ $form->lhp_google_file_id }}/export?format=pdf"
                                                target="_blank"
