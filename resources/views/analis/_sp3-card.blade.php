@@ -103,6 +103,27 @@
         @endforelse
     </div>
 
+    {{-- SP3 doc status --}}
+    <div class="px-5 py-3 border-t border-gray-100 bg-gray-50/30 flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-2 text-sm">
+            @if($sp3->google_doc_id)
+                <span class="text-emerald-600 font-medium">✓ SP3 sudah digenerate</span>
+            @elseif($sp3->doc_generation_status === 'processing' || $sp3->doc_generation_status === 'queued')
+                <span class="text-amber-600 text-xs">SP3 sedang diproses...</span>
+            @elseif($sp3->doc_generation_status === 'failed')
+                <span class="text-red-500 text-xs">SP3 gagal digenerate</span>
+            @else
+                <span class="text-gray-400 text-xs">SP3 belum digenerate</span>
+            @endif
+        </div>
+        @if($sp3->google_doc_id)
+            <a href="{{ $sp3->google_doc_url }}" target="_blank"
+               class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-100 hover:bg-blue-200 text-blue-700 transition-colors">
+                Lihat SP3
+            </a>
+        @endif
+    </div>
+
     {{-- LCP footer --}}
     <div class="px-5 py-3 border-t border-gray-100 bg-gray-50/30 flex items-center justify-between gap-3 flex-wrap">
         <div class="flex items-center gap-2 text-sm">

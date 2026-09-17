@@ -40,18 +40,7 @@ class GenerateSp3Job implements ShouldQueue
 
         $googleDocsService = new GoogleDocsService();
 
-        $sampleNames = $sp3->samples->pluck('sample_name')->filter()->values()->toArray();
-        $count = count($sampleNames);
-        if ($count === 0) {
-            $perihal = 'Sampel';
-        } elseif ($count === 1) {
-            $perihal = $sampleNames[0];
-        } elseif ($count === 2) {
-            $perihal = $sampleNames[0] . ' dan ' . $sampleNames[1];
-        } else {
-            $last = array_pop($sampleNames);
-            $perihal = implode(', ', $sampleNames) . ', dan ' . $last;
-        }
+        $perihal = 'Analisis ' . ($sp3->parameter->name ?? 'Sampel');
 
         $result = $googleDocsService->generateSp3WithTable(
             $sp3->sp3_number,
