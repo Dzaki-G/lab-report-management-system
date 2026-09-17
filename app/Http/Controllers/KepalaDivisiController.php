@@ -195,12 +195,20 @@ class KepalaDivisiController extends Controller
             return false;
         }
 
-        // Atomic check-and-set: only one process wins this update
+        $staleThresholdMinutes = 15;
+
+        // Atomic check-and-set: only one process wins this update.
+        // A "queued" lock older than $staleThresholdMinutes is treated as abandoned
+        // (worker died before the job ever ran, so failed() never fired).
         $claimed = DB::table('form_pengujian')
             ->where('id', $form->id)
-            ->where(function ($q) {
+            ->where(function ($q) use ($staleThresholdMinutes) {
                 $q->whereNull('lhp_generation_status')
-                  ->orWhere('lhp_generation_status', 'failed');
+                  ->orWhere('lhp_generation_status', 'failed')
+                  ->orWhere(function ($q2) use ($staleThresholdMinutes) {
+                      $q2->where('lhp_generation_status', 'queued')
+                         ->where('lhp_generation_started_at', '<', now()->subMinutes($staleThresholdMinutes));
+                  });
             })
             ->update([
                 'lhp_generation_status'     => 'queued',
