@@ -46,25 +46,30 @@ class GenerateLhpJob implements ShouldQueue
         $googleDocsService = new GoogleDocsService();
         $lhpResult = $googleDocsService->generateLhp($form, $this->divisiName);
 
+        $stillPending = $form->status === 'menunggu_review_divisi';
+
         $form->update([
             'lhp_google_file_id' => $lhpResult['id'],
             'lhp_uploaded_at' => now(),
             'lhp_signed_divisi_at' => now(),
-            'status' => 'ttd_upa',
             'lhp_generation_status' => 'completed',
             'lhp_generation_error' => null,
+            // Only advance status if the form hasn't already moved on (e.g. UPA already signed)
+            ...($stillPending ? ['status' => 'ttd_upa'] : []),
         ]);
 
-        FormVerification::create([
-            'form_pengujian_id' => $form->id,
-            'action' => 'approve',
-            'from_status' => 'menunggu_review_divisi',
-            'to_status' => 'ttd_upa',
-            'verified_by' => $this->divisiUserId,
-        ]);
+        if ($stillPending) {
+            FormVerification::create([
+                'form_pengujian_id' => $form->id,
+                'action' => 'approve',
+                'from_status' => 'menunggu_review_divisi',
+                'to_status' => 'ttd_upa',
+                'verified_by' => $this->divisiUserId,
+            ]);
 
-        $notificationService = new NotificationService();
-        $notificationService->notifyTtdRequest($form, Role::KEPALA_UPA);
+            $notificationService = new NotificationService();
+            $notificationService->notifyTtdRequest($form, Role::KEPALA_UPA);
+        }
     }
 
     public function failed(\Throwable $e): void
