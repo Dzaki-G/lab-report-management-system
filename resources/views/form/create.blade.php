@@ -214,9 +214,13 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5 pl-2">
                 <div>
-                    <label class="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Kode Sampel *</label>
+                    <label class="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">
+                        Kode Sampel *
+                        <span class="normal-case font-normal text-gray-400 ml-1">(auto)</span>
+                    </label>
                     <input type="text" name="samples[__INDEX__][sample_code]"
-                           class="w-full border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-mono" required>
+                           class="sample-code-input w-full border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-mono" required>
+                    <p class="text-xs text-gray-400 mt-1">Otomatis — ubah jika perlu</p>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Nama Sampel *</label>
@@ -274,6 +278,17 @@
                     .replace(/__NUMBER__/g, sampleIndex + 1);
 
                 container.insertAdjacentHTML('beforeend', html);
+
+                // Auto-fill sample code for this new sample
+                const allSamples = container.querySelectorAll('.sample-item');
+                const newSample = allSamples[allSamples.length - 1];
+                const codeInput = newSample.querySelector('.sample-code-input');
+                if (codeInput) {
+                    const seq = nextSampleCodeSeq + (allSamples.length - 1);
+                    codeInput.value = String(seq).padStart(3, '0') + sampleCodeSuffix;
+                    codeInput.placeholder = codeInput.value;
+                }
+
                 sampleIndex++;
                 updateSampleNumbers();
             }
@@ -325,6 +340,8 @@
             const parameterNames = @json($parameters->pluck('name', 'id'));
             const nextSpppSeq = {{ $nextSpppSeq }};
             const spppSuffix = @json($spppSuffix);
+            const nextSampleCodeSeq = {{ $nextSampleCodeSeq }};
+            const sampleCodeSuffix = @json($sampleCodeSuffix);
 
             function padSeq(n) {
                 return String(n).padStart(3, '0');

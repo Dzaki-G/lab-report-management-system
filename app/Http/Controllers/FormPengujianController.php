@@ -89,10 +89,12 @@ class FormPengujianController extends Controller
     public function create()
     {
         $parameters = Parameter::active()->orderBy('name')->get();
-        $nextLhpNumber = FormPengujian::generateLhpNumber();
-        $nextSpppSeq   = Sp3Document::generateNextSpppSeq();
-        $spppSuffix    = Sp3Document::spppSuffix();
-        return view('form.create', compact('parameters', 'nextLhpNumber', 'nextSpppSeq', 'spppSuffix'));
+        $nextLhpNumber     = FormPengujian::generateLhpNumber();
+        $nextSpppSeq       = Sp3Document::generateNextSpppSeq();
+        $spppSuffix        = Sp3Document::spppSuffix();
+        $nextSampleCodeSeq = Sample::generateNextSampleCodeSeq();
+        $sampleCodeSuffix  = Sample::sampleCodeSuffix();
+        return view('form.create', compact('parameters', 'nextLhpNumber', 'nextSpppSeq', 'spppSuffix', 'nextSampleCodeSeq', 'sampleCodeSuffix'));
     }
 
     /**

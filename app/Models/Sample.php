@@ -29,4 +29,16 @@ class Sample extends Model
                     ->withPivot('method', 'status', 'filled_by_analyst_id')
                     ->withTimestamps();
     }
+
+    public static function generateNextSampleCodeSeq(): int
+    {
+        $month = now()->format('m');
+        $year  = now()->format('y');
+        return self::where('sample_code', 'like', "%/SPL/{$month}/{$year}")->count() + 1;
+    }
+
+    public static function sampleCodeSuffix(): string
+    {
+        return '/SPL/' . now()->format('m') . '/' . now()->format('y');
+    }
 }

@@ -256,7 +256,6 @@ class GoogleDocsService
         $replacements = [
             'NO_SP3' => $sp3Number,
             'PERIHAL' => $perihal,
-            'NO_SPU' => '',
             'PARAMETER' => $parameterName,
             'TANGGAL' => now()->translatedFormat('j F Y'),
         ];
