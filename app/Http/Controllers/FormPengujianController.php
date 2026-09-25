@@ -214,7 +214,7 @@ class FormPengujianController extends Controller
                 ]);
 
                 foreach ($samples as $sample) {
-                    Sp3Sample::create([
+                    Sp3Sample::firstOrCreate([
                         'sp3_document_id' => $sp3->id,
                         'sample_id'       => $sample['sample_id'],
                     ]);
