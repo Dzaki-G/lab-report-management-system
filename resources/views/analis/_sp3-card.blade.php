@@ -76,6 +76,7 @@
                     <div class="min-w-0">
                         <p class="font-mono text-sm font-semibold text-gray-800 truncate">{{ $sp->sample->sample_code ?? '-' }}</p>
                         <p class="text-xs text-gray-500 truncate">{{ $sp->sample->sample_name ?? '-' }}</p>
+                        <p class="text-xs text-indigo-600 font-medium truncate">Parameter: {{ $sp3->parameter->name ?? '-' }}</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-3 flex-shrink-0 ml-4">

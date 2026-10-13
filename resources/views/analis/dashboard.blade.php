@@ -172,6 +172,7 @@
                                                             <div>
                                                                 <p class="text-sm font-medium text-gray-800">{{ $sp->sample->sample_name ?? '-' }}</p>
                                                                 <p class="text-xs text-gray-400 font-mono">{{ $sp->sample->sample_code ?? '-' }}</p>
+                                                                <p class="text-xs text-indigo-600 font-medium">Parameter: {{ $sp3->parameter->name ?? '-' }}</p>
                                                             </div>
                                                             <div class="text-right">
                                                                 @if($sp->analysisResult)

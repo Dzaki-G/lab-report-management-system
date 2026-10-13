@@ -331,6 +331,11 @@
                 }
             });
 
+            const nextSpppSeq = {{ $nextSpppSeq }};
+            const spppSuffix = @json($spppSuffix);
+            const nextSampleCodeSeq = {{ $nextSampleCodeSeq }};
+            const sampleCodeSuffix = @json($sampleCodeSuffix);
+
             // Add first sample on load
             addSample();
 
@@ -338,10 +343,6 @@
             const sp3Section = document.getElementById('sp3DetailsSection');
             const sp3List = document.getElementById('sp3DetailsList');
             const parameterNames = @json($parameters->pluck('name', 'id'));
-            const nextSpppSeq = {{ $nextSpppSeq }};
-            const spppSuffix = @json($spppSuffix);
-            const nextSampleCodeSeq = {{ $nextSampleCodeSeq }};
-            const sampleCodeSuffix = @json($sampleCodeSuffix);
 
             function padSeq(n) {
                 return String(n).padStart(3, '0');
