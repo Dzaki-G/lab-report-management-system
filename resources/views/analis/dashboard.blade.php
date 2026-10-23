@@ -13,58 +13,55 @@
             @endif
 
             {{-- Tabs --}}
+            @php
+                $tabs = [
+                    'semua'   => ['label' => 'Semua Tugas', 'count' => $allSp3s->count()],
+                    'saya'    => ['label' => 'Tugas Saya',  'count' => $mySp3s->count()],
+                    'riwayat' => ['label' => 'Riwayat',     'count' => $historySp3s->count()],
+                ];
+            @endphp
             <div class="flex gap-2 mb-6 border-b border-gray-200">
-                <button onclick="showTab('aktif')" id="tab-aktif"
-                        class="tab-btn px-5 py-2.5 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 -mb-px transition-colors">
-                    Aktif <span class="ml-1 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs">{{ $mySp3s->count() + $unassignedSp3s->count() }}</span>
-                </button>
-                <button onclick="showTab('riwayat')" id="tab-riwayat"
-                        class="tab-btn px-5 py-2.5 text-sm font-bold border-b-2 border-transparent text-gray-500 hover:text-gray-700 -mb-px transition-colors">
-                    Riwayat <span class="ml-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs">{{ $historySp3s->count() }}</span>
-                </button>
+                @foreach($tabs as $key => $tab)
+                    <button onclick="showTab('{{ $key }}')" id="tab-{{ $key }}"
+                            class="tab-btn px-5 py-2.5 text-sm font-bold border-b-2 -mb-px transition-colors
+                                {{ $activeTab === $key ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+                        {{ $tab['label'] }} <span class="ml-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs">{{ $tab['count'] }}</span>
+                    </button>
+                @endforeach
             </div>
 
-            {{-- Tab: Aktif --}}
-            <div id="panel-aktif">
-                @if($mySp3s->isEmpty() && $unassignedSp3s->isEmpty())
+            {{-- Tab: Semua Tugas — every SP3 still open for work, visible to all analysts --}}
+            <div id="panel-semua" class="{{ $activeTab === 'semua' ? '' : 'hidden' }}">
+                @if($allSp3s->isEmpty())
                     <div class="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-400">
                         Tidak ada SP3 yang sedang dalam pengujian.
                     </div>
                 @else
-                    {{-- Section: Ditugaskan ke Saya --}}
-                    @if($mySp3s->isNotEmpty())
-                        <div class="mb-6">
-                            <h3 class="text-sm font-bold text-indigo-700 uppercase tracking-wide mb-3 flex items-center gap-2">
-                                <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
-                                Ditugaskan ke Saya ({{ $mySp3s->count() }})
-                            </h3>
-                            <div class="space-y-5">
-                                @foreach($mySp3s as $sp3)
-                                    @include('analis._sp3-card', ['sp3' => $sp3])
-                                @endforeach
-                            </div>
-                        </div>
-                    @endif
+                    <div class="space-y-5">
+                        @foreach($allSp3s as $sp3)
+                            @include('analis._sp3-card', ['sp3' => $sp3])
+                        @endforeach
+                    </div>
+                @endif
+            </div>
 
-                    {{-- Section: Belum Ditugaskan --}}
-                    @if($unassignedSp3s->isNotEmpty())
-                        <div>
-                            <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-2">
-                                <span class="w-2 h-2 rounded-full bg-gray-400"></span>
-                                Tersedia — Belum Ditugaskan ({{ $unassignedSp3s->count() }})
-                            </h3>
-                            <div class="space-y-5">
-                                @foreach($unassignedSp3s as $sp3)
-                                    @include('analis._sp3-card', ['sp3' => $sp3])
-                                @endforeach
-                            </div>
-                        </div>
-                    @endif
+            {{-- Tab: Tugas Saya — SP3s I hold (in progress, rejected, waiting review) --}}
+            <div id="panel-saya" class="{{ $activeTab === 'saya' ? '' : 'hidden' }}">
+                @if($mySp3s->isEmpty())
+                    <div class="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-400">
+                        Belum ada SP3 yang Anda ambil. Ambil tugas dari tab Semua Tugas.
+                    </div>
+                @else
+                    <div class="space-y-5">
+                        @foreach($mySp3s as $sp3)
+                            @include('analis._sp3-card', ['sp3' => $sp3])
+                        @endforeach
+                    </div>
                 @endif
             </div>
 
             {{-- Tab: Riwayat --}}
-            <div id="panel-riwayat" class="hidden">
+            <div id="panel-riwayat" class="{{ $activeTab === 'riwayat' ? '' : 'hidden' }}">
                 @if($historySp3s->isEmpty())
                     <div class="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-400">
                         Belum ada riwayat pengerjaan.
@@ -104,6 +101,10 @@
                                         {{ $sp3->form->status === 'selesai' ? 'bg-green-100 text-green-700' : 'bg-indigo-100 text-indigo-700' }}">
                                         {{ \App\Models\FormVerification::getStatusLabel($sp3->form->status) }}
                                     </span>
+                                    <a href="{{ route('analis.sp3.show', $sp3) }}"
+                                       class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-100 hover:bg-purple-200 text-purple-700 transition-colors">
+                                        LCP &amp; Foto
+                                    </a>
                                     <button onclick="openRiwayatModal('modal-{{ $sp3->id }}')"
                                             class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors">
                                         Detail
@@ -210,7 +211,7 @@
 
     <script>
         function showTab(name) {
-            ['aktif', 'riwayat'].forEach(t => {
+            ['semua', 'saya', 'riwayat'].forEach(t => {
                 document.getElementById('panel-' + t).classList.toggle('hidden', t !== name);
                 const btn = document.getElementById('tab-' + t);
                 btn.classList.toggle('border-indigo-600', t === name);

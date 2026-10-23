@@ -2,158 +2,271 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
-use App\Models\FormPengujian;
-use App\Models\Sample;
-use App\Models\Parameter;
-use App\Models\SampleParameter;
-use App\Models\Unit;
-use App\Enums\Role;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
+use App\Jobs\GenerateLhpJob;
+use App\Jobs\GenerateSp3Job;
+use App\Models\Notification;
+use App\Models\Sp3Document;
+use Illuminate\Support\Facades\Bus;
 
-class FullWorkflowTest extends TestCase
+/**
+ * SP3 ownership workflow: Ambil -> input -> Kirim -> (Tolak -> perbaiki -> Kirim Ulang) -> Setujui -> LHP.
+ * One analyst holds one SP3 (one parameter x all its samples).
+ */
+class FullWorkflowTest extends LabTestCase
 {
-    // We don't use RefreshDatabase here to avoid wiping the existing seed data which might be needed
-    // Instead we'll clean up created data
-    // use RefreshDatabase; 
-
-    public function test_complete_form_lifecycle()
+    public function test_admin_creating_a_form_creates_one_sp3_per_parameter_and_queues_docs(): void
     {
-        // 0. Setup Users
-        $admin = User::where('role_id', Role::ADMIN)->first();
-        $kepalaUpa = User::where('role_id', Role::KEPALA_UPA)->first();
-        $kepalaDivisi = User::where('role_id', Role::KEPALA_DIVISI)->first();
-        $analis = User::where('role_id', Role::ANALIS)->first();
+        $ph = $this->makeParameter('pH');
+        $cod = $this->makeParameter('COD');
 
-        // Ensure users exist
-        $this->assertNotNull($admin, 'Admin not found');
-        $this->assertNotNull($kepalaUpa, 'Kepala UPA not found');
-        $this->assertNotNull($kepalaDivisi, 'Kepala Divisi not found');
-        $this->assertNotNull($analis, 'Analis not found');
+        $form = $this->createForm([$ph, $cod], sampleCount: 2);
 
-        // Create dummy unit if needed
-        $unit = Unit::firstOrCreate(['name' => 'mg/L']);
+        $this->assertSame('dalam_pengujian', $form->status);
+        $this->assertCount(2, $form->sp3Documents);
+        $this->assertCount(2, $this->sp3For($form, $ph)->samples);
+        Bus::assertDispatchedTimes(GenerateSp3Job::class, 2);
+    }
 
-        // Create Parameter if needed
-        $parameter = Parameter::firstOrCreate(
-            ['name' => 'Test Parameter'],
-            ['unit_id' => $unit->id, 'price' => 50000]
+    public function test_analyst_must_take_an_sp3_before_inputting(): void
+    {
+        $ph = $this->makeParameter('pH');
+        $sp3 = $this->sp3For($this->createForm([$ph]), $ph);
+        $row = $sp3->sampleParametersQuery()->first();
+
+        $this->actingAs($this->analisA)->get(route('analis.input', $row))
+            ->assertRedirect(route('analis.dashboard'))
+            ->assertSessionHas('error', 'Ambil SP3 ini terlebih dahulu sebelum menginput hasil.');
+
+        $this->actingAs($this->analisA)->post(route('analis.sp3.take', $sp3))
+            ->assertSessionHas('success');
+
+        $this->assertTrue($sp3->fresh()->isOwnedBy($this->analisA->user_id));
+        $this->actingAs($this->analisA)->get(route('analis.input', $row))->assertOk();
+    }
+
+    public function test_other_analyst_cannot_take_or_input_on_a_taken_sp3(): void
+    {
+        $ph = $this->makeParameter('pH');
+        $sp3 = $this->sp3For($this->createForm([$ph]), $ph);
+        $this->actingAs($this->analisA)->post(route('analis.sp3.take', $sp3));
+
+        $this->actingAs($this->analisB)->post(route('analis.sp3.take', $sp3))
+            ->assertSessionHas('error');
+        $this->assertTrue($sp3->fresh()->isOwnedBy($this->analisA->user_id));
+
+        $row = $sp3->sampleParametersQuery()->first();
+        $this->actingAs($this->analisB)->post(route('analis.store', $row), [
+            'result_value' => '1', 'instrument' => 'x', 'method' => 'x', 'analysis_date' => now()->toDateString(),
+        ])->assertSessionHas('error', 'SP3 ini dipegang analis lain.');
+        $this->assertSame('pending', $row->fresh()->status);
+    }
+
+    public function test_semua_tugas_shows_everyone_and_tugas_saya_shows_only_mine(): void
+    {
+        $ph = $this->makeParameter('pH');
+        $cod = $this->makeParameter('COD');
+        $form = $this->createForm([$ph, $cod]);
+        $phSp3 = $this->sp3For($form, $ph);
+        $this->actingAs($this->analisA)->post(route('analis.sp3.take', $phSp3));
+
+        $this->actingAs($this->analisB)->get(route('analis.dashboard'))
+            ->assertOk()
+            ->assertViewHas('allSp3s', fn ($all) => $all->count() === 2)
+            ->assertViewHas('mySp3s', fn ($mine) => $mine->isEmpty())
+            ->assertSee('Diambil oleh Analis A');
+
+        $this->actingAs($this->analisA)->get(route('analis.dashboard'))
+            ->assertViewHas('mySp3s', fn ($mine) => $mine->pluck('id')->all() === [$phSp3->id])
+            ->assertViewHas('activeTab', 'saya');
+    }
+
+    public function test_release_is_only_allowed_before_any_result(): void
+    {
+        $ph = $this->makeParameter('pH');
+        $sp3 = $this->sp3For($this->createForm([$ph], sampleCount: 2), $ph);
+        $this->actingAs($this->analisA)->post(route('analis.sp3.take', $sp3));
+
+        $this->actingAs($this->analisB)->post(route('analis.sp3.release', $sp3))
+            ->assertSessionHas('error', 'Anda bukan pemegang SP3 ini.');
+
+        $this->actingAs($this->analisA)->post(route('analis.sp3.release', $sp3))
+            ->assertSessionHas('success');
+        $this->assertNull($sp3->fresh()->assigned_analyst_id);
+
+        $this->actingAs($this->analisA)->post(route('analis.sp3.take', $sp3));
+        $row = $sp3->sampleParametersQuery()->first();
+        $this->actingAs($this->analisA)->post(route('analis.store', $row), [
+            'result_value' => '1', 'instrument' => 'x', 'method' => 'x', 'analysis_date' => now()->toDateString(),
+        ]);
+
+        $this->actingAs($this->analisA)->post(route('analis.sp3.release', $sp3->fresh()))
+            ->assertSessionHas('error');
+        $this->assertTrue($sp3->fresh()->isOwnedBy($this->analisA->user_id));
+    }
+
+    public function test_saving_results_does_not_send_anything_and_kirim_needs_all_rows(): void
+    {
+        $ph = $this->makeParameter('pH');
+        $form = $this->createForm([$ph], sampleCount: 2);
+        $sp3 = $this->sp3For($form, $ph);
+        $this->actingAs($this->analisA)->post(route('analis.sp3.take', $sp3));
+
+        $first = $sp3->sampleParametersQuery()->first();
+        $this->actingAs($this->analisA)->post(route('analis.store', $first), [
+            'result_value' => '1', 'instrument' => 'x', 'method' => 'x', 'analysis_date' => now()->toDateString(),
+        ]);
+        $this->actingAs($this->analisA)->post(route('analis.sp3.submit', $sp3->fresh()))
+            ->assertSessionHas('error');
+        $this->assertNull($sp3->fresh()->submitted_at);
+
+        $this->fillSp3($sp3, $this->analisA);
+        // Every row filled, but nothing is sent until the analyst clicks Kirim
+        $this->assertSame('dalam_pengujian', $form->fresh()->status);
+        $this->assertNull($sp3->fresh()->submitted_at);
+    }
+
+    public function test_form_goes_to_divisi_only_after_every_sp3_is_sent(): void
+    {
+        $ph = $this->makeParameter('pH');
+        $cod = $this->makeParameter('COD');
+        $form = $this->createForm([$ph, $cod]);
+        $phSp3 = $this->sp3For($form, $ph);
+        $codSp3 = $this->sp3For($form, $cod);
+
+        $this->actingAs($this->analisA)->post(route('analis.sp3.take', $phSp3));
+        $this->fillSp3($phSp3, $this->analisA);
+        $this->actingAs($this->analisA)->post(route('analis.sp3.submit', $phSp3->fresh()))->assertSessionHas('success');
+
+        $phSp3->refresh();
+        $this->assertSame($this->analisA->user_id, (int) $phSp3->submitted_by);
+        $this->assertNotNull($phSp3->submitted_at);
+        $this->assertSame('dalam_pengujian', $form->fresh()->status);
+        $this->assertSame(0, Notification::where('user_id', $this->kepalaDivisi->user_id)->count());
+
+        // Sent SP3 is locked while waiting for review
+        $row = $phSp3->sampleParametersQuery()->first();
+        $this->actingAs($this->analisA)->get(route('analis.input', $row))
+            ->assertSessionHas('error', 'SP3 ini sudah dikirim dan sedang menunggu review Kepala Divisi.');
+
+        $this->actingAs($this->analisB)->post(route('analis.sp3.take', $codSp3));
+        $this->fillSp3($codSp3, $this->analisB);
+        $this->actingAs($this->analisB)->post(route('analis.sp3.submit', $codSp3->fresh()));
+
+        $this->assertSame('menunggu_review_divisi', $form->fresh()->status);
+        $this->assertSame(1, Notification::where('user_id', $this->kepalaDivisi->user_id)->count());
+
+        $this->actingAs($this->kepalaDivisi)->get(route('kepala-divisi.review-lhp', $form))
+            ->assertOk()
+            ->assertSee('Dikirim oleh')
+            ->assertSee('Analis A')
+            ->assertSee('Analis B');
+    }
+
+    public function test_divisi_cannot_approve_or_reject_an_sp3_that_was_not_sent(): void
+    {
+        $ph = $this->makeParameter('pH');
+        $sp3 = $this->sp3For($this->createForm([$ph]), $ph);
+
+        $this->actingAs($this->kepalaDivisi)->post(route('kepala-divisi.sp3.approve', $sp3))
+            ->assertSessionHas('error');
+        $this->actingAs($this->kepalaDivisi)->post(route('kepala-divisi.sp3.reject', $sp3), ['note' => 'x'])
+            ->assertSessionHas('error');
+        $this->assertSame(Sp3Document::STATUS_PENDING, $sp3->fresh()->review_status);
+    }
+
+    /**
+     * The original bug: after Kepala Divisi rejected an SP3 it disappeared for every analyst.
+     */
+    public function test_rejected_sp3_comes_back_to_its_analyst_with_a_notification(): void
+    {
+        $ph = $this->makeParameter('pH');
+        $form = $this->createForm([$ph]);
+        $sp3 = $this->sp3For($form, $ph);
+        $this->actingAs($this->analisA)->post(route('analis.sp3.take', $sp3));
+        $this->fillSp3($sp3, $this->analisA, '7.1');
+        $this->actingAs($this->analisA)->post(route('analis.sp3.submit', $sp3->fresh()));
+        $this->assertSame('menunggu_review_divisi', $form->fresh()->status);
+
+        $this->actingAs($this->kepalaDivisi)
+            ->post(route('kepala-divisi.sp3.reject', $sp3->fresh()), ['note' => 'Nilai pH tidak masuk akal'])
+            ->assertSessionHas('success');
+
+        $notif = Notification::where('user_id', $this->analisA->user_id)->where('type', 'form_rejected')->first();
+        $this->assertNotNull($notif);
+        $this->assertStringContainsString('Nilai pH tidak masuk akal', $notif->message);
+        $this->assertSame($sp3->id, $notif->data['sp3_id']);
+
+        // Clicking the notification lands on Tugas Saya
+        $this->actingAs($this->analisA)->post(route('notifications.read', $notif->id))
+            ->assertRedirect(route('analis.dashboard', ['tab' => 'saya']));
+
+        // Still visible (form is in Divisi's queue) and editable again
+        $this->actingAs($this->analisA)->get(route('analis.dashboard'))
+            ->assertViewHas('mySp3s', fn ($mine) => $mine->contains('id', $sp3->id))
+            ->assertViewHas('allSp3s', fn ($all) => $all->contains('id', $sp3->id))
+            ->assertSee('DITOLAK')
+            ->assertSee('Nilai pH tidak masuk akal');
+
+        $row = $sp3->sampleParametersQuery()->first();
+        $this->actingAs($this->analisA)->get(route('analis.input', $row))->assertOk();
+    }
+
+    public function test_resend_after_reject_notifies_divisi_and_approval_triggers_lhp(): void
+    {
+        $ph = $this->makeParameter('pH');
+        $form = $this->createForm([$ph]);
+        $sp3 = $this->sp3For($form, $ph);
+        $this->actingAs($this->analisA)->post(route('analis.sp3.take', $sp3));
+        $this->fillSp3($sp3, $this->analisA, '99');
+        $this->actingAs($this->analisA)->post(route('analis.sp3.submit', $sp3->fresh()));
+        $this->actingAs($this->kepalaDivisi)->post(route('kepala-divisi.sp3.reject', $sp3->fresh()), ['note' => 'ulang']);
+
+        $this->fillSp3($sp3->fresh(), $this->analisA, '7.1');
+        $this->assertSame(Sp3Document::STATUS_REJECTED, $sp3->fresh()->review_status, 'Saving a fix must not auto-resend');
+
+        $this->actingAs($this->analisA)->post(route('analis.sp3.submit', $sp3->fresh()))
+            ->assertSessionHas('success');
+        $this->assertSame(Sp3Document::STATUS_RESUBMITTED, $sp3->fresh()->review_status);
+        $this->assertTrue(
+            Notification::where('user_id', $this->kepalaDivisi->user_id)->where('title', "SP3 {$sp3->sp3_number} dikirim ulang")->exists()
         );
 
-        echo "\n[Step 0] Users and Master Data Ready\n";
+        $this->actingAs($this->kepalaDivisi)->post(route('kepala-divisi.sp3.approve', $sp3->fresh()))
+            ->assertSessionHas('success');
+        $this->assertSame(Sp3Document::STATUS_APPROVED, $sp3->fresh()->review_status);
+        Bus::assertDispatched(GenerateLhpJob::class);
 
-        // 1. ADMIN: Create Form
-        $response = $this->actingAs($admin)->post(route('form.store'), [
-            'name' => 'John Doe',
-            'agency' => 'Test Agency',
-            'address' => 'Test Address',
-            'phone' => '081234567890',
-            'email' => 'test@example.com',
-            'analysis_type' => 'Test Analysis',
-            'samples' => [
-                [
-                    'name' => 'Sample A',
-                    'description' => 'Test Desc',
-                    'amount' => '100ml',
-                    'parameters' => [$parameter->id]
-                ]
-            ]
-        ]);
+        // Approved SP3 moves to Riwayat and is locked
+        $this->actingAs($this->analisA)->get(route('analis.dashboard'))
+            ->assertViewHas('mySp3s', fn ($mine) => $mine->isEmpty())
+            ->assertViewHas('historySp3s', fn ($h) => $h->contains('id', $sp3->id));
+    }
 
-        $response->assertRedirect();
-        $form = FormPengujian::latest()->first();
-        $this->assertEquals('verifikasi_upa_1', $form->status);
-        echo "[Step 1] Form Created. Status: " . $form->status . " (Expected: verifikasi_upa_1)\n";
+    public function test_lcp_link_can_be_saved_from_the_form_detail_page_field_name(): void
+    {
+        $ph = $this->makeParameter('pH');
+        $form = $this->createForm([$ph]);
+        $sp3 = $this->sp3For($form, $ph);
 
-        // 2. KEPALA UPA: Initial Approve
-        $response = $this->actingAs($kepalaUpa)->post(route('kepala-upa.approve', $form));
-        $response->assertRedirect();
-        $form->refresh();
-        $this->assertEquals('verifikasi_divisi', $form->status);
-        echo "[Step 2] Kepala UPA Approved. Status: " . $form->status . " (Expected: verifikasi_divisi)\n";
+        // form-detail.blade.php posts the field as lcp_link (was lcp_url, which always failed)
+        $this->actingAs($this->analisA)->get(route('analis.form.show', $form))
+            ->assertOk()
+            ->assertSee('name="lcp_link"', false);
 
-        // 3. KEPALA DIVISI: Assign Analyst
-        $sample = $form->samples->first();
-        $sampleParam = $sample->sampleParameters->first();
-        
-        $response = $this->actingAs($kepalaDivisi)->post(route('kepala-divisi.assign', $form), [
-            'assignments' => [
-                $sampleParam->id => $analis->user_id
-            ]
-        ]);
-        $response->assertRedirect();
-        
-        // Verify assignment
-        $sampleParam->refresh();
-        $this->assertEquals($analis->user_id, $sampleParam->assigned_analyst_id);
-        echo "[Step 3] Analyst Assigned.\n";
+        $this->actingAs($this->analisA)->post(route('analis.sp3.submit-lcp', $sp3), ['lcp_link' => 'https://drive.google.com/lcp'])
+            ->assertSessionHas('success');
+        $this->assertSame('https://drive.google.com/lcp', $sp3->fresh()->lcp_google_file_url);
+    }
 
-        // 4. KEPALA DIVISI: Approve to Testing
-        $response = $this->actingAs($kepalaDivisi)->post(route('kepala-divisi.approve', $form));
-        $response->assertRedirect();
-        $form->refresh();
-        $this->assertEquals('dalam_pengujian', $form->status);
-        echo "[Step 4] Kepala Divisi Approved. Status: " . $form->status . " (Expected: dalam_pengujian)\n";
+    public function test_admin_assign_puts_the_sp3_in_that_analysts_tugas_saya(): void
+    {
+        $ph = $this->makeParameter('pH');
+        $sp3 = $this->sp3For($this->createForm([$ph]), $ph);
 
-        // 5. ANALIS: Submit Result
-        // Analis needs to input result for the parameter
-        $response = $this->actingAs($analis)->post(route('analis.store-result', $form), [
-            'results' => [
-                $sampleParam->id => '10.5'
-            ],
-            'units' => [
-                $sampleParam->id => 'mg/L'
-            ]
-        ]);
-        $response->assertRedirect();
-        
-        $form->refresh();
-        // Check logic: if all params done, status moves to verifikasi_hasil_divisi
-        $this->assertEquals('verifikasi_hasil_divisi', $form->status);
-        echo "[Step 5] Analis Submitted. Status: " . $form->status . " (Expected: verifikasi_hasil_divisi)\n";
+        $this->actingAs($this->admin)->post(route('admin.assign-analyst', $sp3), ['analyst_id' => $this->analisB->user_id])
+            ->assertSessionHas('success');
 
-        // 6. KEPALA DIVISI: Verify Result
-        // Transition verifikasi_hasil_divisi -> input_lhp
-        $response = $this->actingAs($kepalaDivisi)->post(route('kepala-divisi.approve', $form));
-        $response->assertRedirect();
-        $form->refresh();
-        $this->assertEquals('input_lhp', $form->status);
-        echo "[Step 6] Result Verified. Status: " . $form->status . " (Expected: input_lhp)\n";
-
-        // 7. ADMIN: Submit LHP
-        $response = $this->actingAs($admin)->post(route('form.submit-lhp', $form));
-        $response->assertRedirect();
-        $form->refresh();
-        $this->assertEquals('ttd_upa', $form->status);
-        echo "[Step 7] Admin Submitted LHP. Status: " . $form->status . " (Expected: ttd_upa)\n";
-
-        // 8. KEPALA UPA: Sign (TTD)
-        $response = $this->actingAs($kepalaUpa)->post(route('kepala-upa.approve', $form));
-        $response->assertRedirect();
-        $form->refresh();
-        $this->assertEquals('kirim_customer', $form->status);
-        echo "[Step 8] Kepala UPA Signed. Status: " . $form->status . " (Expected: kirim_customer)\n";
-
-        // 9. ADMIN: Complete / Send to Customer
-        // Assuming there is a route properly mapped for this or using update status
-        // Let's check FormPengujianController::kirimCustomer or similar
-        // If not explicit, maybe updating status manually or verify validasi_admin logic
-        // Based on DashboardController status list, 'selesai' is final.
-        // Let's assume Admin does something to move it to 'selesai' or 'validasi_admin'
-        
-        // Wait, KepalaUpaController transition: ttd_upa -> kirim_customer.
-        // There must be an Admin action to handle 'kirim_customer'.
-        // Checking routes list earlier... route('form.kirim-customer') exists?
-        
-        // Let's create a stub for this step or verify current state is enough for "Passed TTD"
-        echo "[Step 9] Flow Reached 'Kirim Customer'. Test Complete.\n";
-        
-        // Cleanup
-        $form->samples->each(function($s) {
-            $s->sampleParameters()->delete();
-            $s->delete();
-        });
-        $form->delete();
+        $this->actingAs($this->analisB)->get(route('analis.dashboard'))
+            ->assertViewHas('mySp3s', fn ($mine) => $mine->contains('id', $sp3->id));
     }
 }

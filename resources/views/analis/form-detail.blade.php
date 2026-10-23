@@ -119,11 +119,21 @@
                                                 @endif
                                             </div>
                                             <div>
+                                                @php
+                                                    $rowSp3 = $form->sp3Documents->firstWhere('parameter_id', $sp->parameter_id);
+                                                    $canInput = $rowSp3 && $rowSp3->isOwnedBy(auth()->user()->user_id) && $rowSp3->isEditable();
+                                                @endphp
                                                 @if($sp->status === 'pending' || $sp->status === 'in_progress')
-                                                    <a href="{{ route('analis.input', $sp) }}"
-                                                       class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium">
-                                                        Input Hasil
-                                                    </a>
+                                                    @if($canInput)
+                                                        <a href="{{ route('analis.input', $sp) }}"
+                                                           class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium">
+                                                            Input Hasil
+                                                        </a>
+                                                    @else
+                                                        <span class="text-gray-500 text-sm">
+                                                            {{ $rowSp3?->assignedAnalyst ? 'Dipegang ' . $rowSp3->assignedAnalyst->full_name : 'Belum diambil' }}
+                                                        </span>
+                                                    @endif
                                                 @else
                                                     <span class="text-green-600 font-medium text-sm">✓ Selesai</span>
                                                 @endif
@@ -195,7 +205,7 @@
                                         <label class="block text-xs font-medium text-gray-600 mb-1">
                                             {{ $sp3->lcp_google_file_url ? 'Perbarui URL LCP' : 'Tambah URL LCP (Google Drive)' }}
                                         </label>
-                                        <input type="url" name="lcp_url"
+                                        <input type="url" name="lcp_link"
                                                value="{{ $sp3->lcp_google_file_url ?? '' }}"
                                                placeholder="https://drive.google.com/..."
                                                class="w-full border-gray-300 rounded-md shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500">

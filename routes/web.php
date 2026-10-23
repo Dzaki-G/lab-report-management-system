@@ -82,7 +82,13 @@ Route::middleware(['auth', 'role:' . Role::ADMIN])->group(function () {
 
     Route::post('/form-pengujian', [FormPengujianController::class, 'store'])
         ->name('form.store');
-    
+
+    // Edit form (Admin only) — header fields + sample code/name/notes
+    Route::get('/form-pengujian/{form}/edit', [FormPengujianController::class, 'edit'])
+        ->name('form.edit');
+    Route::put('/form-pengujian/{form}', [FormPengujianController::class, 'update'])
+        ->name('form.update');
+
     Route::get('/form-pengujian/{form}/samples', [SampleController::class, 'index'])
         ->name('samples.index');
     
@@ -142,6 +148,9 @@ Route::middleware(['auth', 'role:' . Role::ADMIN])->group(function () {
         ->name('parameters.create');
     Route::post('/parameters', [\App\Http\Controllers\ParameterController::class, 'store'])
         ->name('parameters.store');
+    // Quick-add from the Form Pengujian create page (AJAX, returns JSON)
+    Route::post('/parameters/quick-store', [\App\Http\Controllers\ParameterController::class, 'quickStore'])
+        ->name('parameters.quick-store');
     Route::get('/parameters/{parameter}/edit', [\App\Http\Controllers\ParameterController::class, 'edit'])
         ->name('parameters.edit');
     Route::put('/parameters/{parameter}', [\App\Http\Controllers\ParameterController::class, 'update'])
@@ -174,6 +183,16 @@ Route::middleware(['auth', 'role:' . Role::ANALIS])->group(function () {
         ->name('analis.sp3.show');
     Route::post('/analis/sp3/{sp3}/submit-lcp', [\App\Http\Controllers\AnalisController::class, 'submitLcpLink'])
         ->name('analis.sp3.submit-lcp');
+    Route::post('/analis/sp3/{sp3}/photo-link', [\App\Http\Controllers\AnalisController::class, 'submitPhotoLink'])
+        ->name('analis.sp3.photo-link');
+
+    // SP3 ownership: take / release / send to Kepala Divisi
+    Route::post('/analis/sp3/{sp3}/take', [\App\Http\Controllers\AnalisController::class, 'takeSp3'])
+        ->name('analis.sp3.take');
+    Route::post('/analis/sp3/{sp3}/release', [\App\Http\Controllers\AnalisController::class, 'releaseSp3'])
+        ->name('analis.sp3.release');
+    Route::post('/analis/sp3/{sp3}/submit', [\App\Http\Controllers\AnalisController::class, 'submitSp3'])
+        ->name('analis.sp3.submit');
 });
 
 // Kepala UPA Routes

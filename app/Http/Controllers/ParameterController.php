@@ -34,6 +34,27 @@ class ParameterController extends Controller
             ->with('success', 'Parameter berhasil ditambahkan');
     }
 
+    /**
+     * AJAX quick-add used by the "+ Parameter Baru" button on the create form.
+     */
+    public function quickStore(Request $request)
+    {
+        $validated = $request->validate([
+            'name'           => 'required|string|unique:parameters,name',
+            'instrument'     => 'nullable|string|max:500',
+            'category'       => 'nullable|string',
+            'default_method' => 'nullable|string',
+            'default_unit'   => 'nullable|string',
+        ]);
+
+        $parameter = Parameter::create($validated);
+
+        return response()->json([
+            'id'   => $parameter->id,
+            'name' => $parameter->name,
+        ], 201);
+    }
+
     public function edit(Parameter $parameter)
     {
         return view('parameters.edit', compact('parameter'));

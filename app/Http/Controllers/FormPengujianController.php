@@ -301,29 +301,145 @@ class FormPengujianController extends Controller
 
     public function edit(FormPengujian $form)
     {
-        $form->load('samples.sampleParameters');
-        $parameters = Parameter::active()->orderBy('name')->get();
+        if ($form->status === 'selesai') {
+            return redirect()->route('form.show', $form)
+                ->with('error', 'Form yang sudah selesai tidak dapat diubah.');
+        }
 
-        return view('form.edit', compact('form', 'parameters'));
+        $form->load('samples.sampleParameters.parameter');
+
+        return view('form.edit', compact('form'));
     }
 
+    /**
+     * Admin edits form header fields and sample code/name/notes.
+     * Parameters and the sample list are locked. SP3 docs that list a sample
+     * whose code/name changed are regenerated so the Google Doc stays in sync.
+     */
     public function update(Request $request, FormPengujian $form)
     {
+        if ($form->status === 'selesai') {
+            return redirect()->route('form.show', $form)
+                ->with('error', 'Form yang sudah selesai tidak dapat diubah.');
+        }
+
         $validated = $request->validate([
-            'customer_name' => 'required|string',
-            'received_date' => 'required|date',
+            'lhp_number'  => 'nullable|string|max:100',
+            'no_terima_sampel' => 'nullable|string',
+            'received_date'  => 'required|date',
+            'customer_name'  => 'nullable|string|max:255',
+            'customer_phone' => 'nullable|string|max:20',
+            'customer_address' => 'nullable|string|max:500',
+            'customer_institution' => 'nullable|string|max:255',
+            'customer_position' => 'nullable|string|max:255',
+            'contact_person' => 'nullable|string|max:255',
+            'sample_type'    => 'nullable|string|max:255',
+            'sample_matrix'  => 'nullable|string|max:255',
+            'sample_name_label' => 'nullable|string|max:255',
+            'sample_form'    => 'nullable|string|max:100',
+            'sample_packing' => 'nullable|string|max:100',
+            'sample_count'   => 'nullable|integer|min:1',
+            'samples'        => 'required|array|min:1',
+            'samples.*.id'          => 'required|integer',
+            'samples.*.sample_code' => 'required|string',
+            'samples.*.sample_name' => 'required|string',
+            'samples.*.notes'       => 'nullable|string',
         ]);
+
+        $formSamples = $form->samples->keyBy('id');
+        foreach ($validated['samples'] as $sampleData) {
+            if (!$formSamples->has($sampleData['id'])) {
+                abort(422, 'Sampel tidak termasuk dalam form ini.');
+            }
+        }
 
         $receivedDate = Carbon::parse($validated['received_date']);
+        $changedSampleIds = [];
 
-        $form->update([
-            'customer_name' => $validated['customer_name'],
-            'received_date' => $validated['received_date'],
-            'deadline_date' => $receivedDate->copy()->addWeekdays(12),
-        ]);
+        DB::transaction(function () use ($validated, $receivedDate, $request, $form, $formSamples, &$changedSampleIds) {
+            $form->update([
+                'lhp_number'       => $validated['lhp_number'] ?? null,
+                'no_terima_sampel' => $validated['no_terima_sampel'] ?? null,
+                'received_date'    => $validated['received_date'],
+                'deadline_date'    => $receivedDate->copy()->addWeekdays(12),
+                'customer_name'    => $validated['customer_name'] ?? null,
+                'customer_phone'   => $validated['customer_phone'] ?? null,
+                'customer_address' => $validated['customer_address'] ?? null,
+                'customer_institution' => $validated['customer_institution'] ?? null,
+                'customer_position' => $validated['customer_position'] ?? null,
+                'contact_person'   => $validated['contact_person'] ?? null,
+                'sample_type'      => $validated['sample_type'] ?? null,
+                'sample_matrix'    => $validated['sample_matrix'] ?? null,
+                'sample_name_label' => $validated['sample_name_label'] ?? null,
+                'sample_form'      => $validated['sample_form'] ?? null,
+                'sample_packing'   => $validated['sample_packing'] ?? null,
+                'sample_count'     => $validated['sample_count'] ?? null,
+            ]);
 
-        return redirect()->route('form.show', $form)
-            ->with('success', 'Form Pengujian berhasil diupdate');
+            foreach ($validated['samples'] as $sampleData) {
+                $sample = $formSamples->get($sampleData['id']);
+                $sample->fill([
+                    'sample_code' => $sampleData['sample_code'],
+                    'sample_name' => $sampleData['sample_name'],
+                    'notes'       => $sampleData['notes'] ?? null,
+                ]);
+
+                if ($sample->isDirty(['sample_code', 'sample_name'])) {
+                    $changedSampleIds[] = $sample->id;
+                }
+
+                $sample->save();
+            }
+
+            FormVerification::create([
+                'form_pengujian_id' => $form->id,
+                'action'            => 'edit_form',
+                'from_status'       => $form->status,
+                'to_status'         => $form->status,
+                'verified_by'       => $request->user()->user_id,
+            ]);
+        });
+
+        // Regenerate SP3 docs that list a renamed/recoded sample
+        $regenerated = 0;
+        if (!empty($changedSampleIds)) {
+            $affectedSp3s = $form->sp3Documents()
+                ->whereHas('samples', fn ($q) => $q->whereIn('samples.id', $changedSampleIds))
+                ->get();
+
+            $googleDocsService = $affectedSp3s->contains(fn ($sp3) => $sp3->google_doc_id)
+                ? new \App\Services\GoogleDocsService()
+                : null;
+
+            foreach ($affectedSp3s as $sp3) {
+                if ($sp3->google_doc_id) {
+                    try {
+                        $googleDocsService->deleteFile($sp3->google_doc_id);
+                    } catch (\Exception $e) {
+                        Log::warning("Failed to delete old SP3 {$sp3->sp3_number} doc during form edit: " . $e->getMessage());
+                    }
+                }
+
+                $sp3->update([
+                    'google_doc_id'         => null,
+                    'google_doc_url'        => null,
+                    'doc_generation_status' => 'queued',
+                    'doc_generation_error'  => null,
+                ]);
+                GenerateSp3Job::dispatch($sp3->id);
+                $regenerated++;
+            }
+        }
+
+        $message = 'Form Pengujian berhasil diperbarui.';
+        if ($regenerated > 0) {
+            $message .= " {$regenerated} dokumen SP3 sedang digenerate ulang.";
+        }
+        if ($form->lhp_google_file_id) {
+            $message .= ' Catatan: dokumen LHP yang sudah digenerate tidak ikut berubah.';
+        }
+
+        return redirect()->route('form.show', $form)->with('success', $message);
     }
 
     /**
@@ -334,12 +450,12 @@ class FormPengujianController extends Controller
     public function lhpReady()
     {
         $ready = FormPengujian::where('status', 'kirim_customer')
-            ->with('admin')
+            ->with(['admin', 'sp3Documents.parameter'])
             ->latest('lhp_signed_upa_at')
             ->get();
 
         $recentDone = FormPengujian::where('status', 'selesai')
-            ->with('admin')
+            ->with(['admin', 'sp3Documents.parameter'])
             ->latest('updated_at')
             ->limit(20)
             ->get();

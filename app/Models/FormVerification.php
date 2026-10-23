@@ -36,6 +36,8 @@ class FormVerification extends Model
             'approve'          => 'Disetujui',
             'reject'           => 'Ditolak',
             'selesai_pengujian' => 'Semua pengujian selesai',
+            'edit_form'        => 'Form diubah oleh Admin',
+            'sp3_submit'       => 'SP3 dikirim ke Kepala Divisi',
             'sp3_approve'      => 'SP3 disetujui',
             'sp3_reject'       => 'SP3 ditolak',
             'sp3_resubmit'     => 'SP3 diperbaiki dan dikirim ulang',

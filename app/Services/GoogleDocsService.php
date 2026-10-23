@@ -680,6 +680,8 @@ class GoogleDocsService
             'SAMPLE_FORM'        => $form->sample_form ?? '-',
             'SAMPLE_PACKING'     => $form->sample_packing ?? '-',
             'SAMPLE_COUNT'       => $form->sample_count ?? $form->samples->count(),
+            // Pictures are sent separately — one GDrive link per parameter
+            'LINK_FOTO'          => $form->photoLinksText(),
             // Left blank on purpose — filled later by patchLhpSignature()
             'UPA_NAME'           => '',
             'UPA_TANGGAL'        => '',

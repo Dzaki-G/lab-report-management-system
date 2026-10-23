@@ -166,6 +166,63 @@
                     </button>
                 </form>
             </div>
+
+            <!-- Photo Link Section -->
+            <div class="bg-white shadow rounded-lg p-6 mt-6">
+                <h3 class="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">
+                    📷 Link Foto / Dokumentasi
+                </h3>
+                <p class="text-sm text-gray-500 mb-4">
+                    <span class="font-medium">Opsional</span> — isi hanya jika parameter ini memiliki foto.
+                    Satu link per parameter (folder/file Google Drive berisi foto semua sampel SP3 ini), dikirim Admin ke customer bersama LHP.
+                </p>
+
+                @if($sp3->photo_link)
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-green-800 font-medium">✓ Link foto sudah diinput</p>
+                                <p class="text-sm text-green-600 mt-1 break-all">{{ Str::limit($sp3->photo_link, 60) }}</p>
+                                @if($sp3->photo_link_updated_at)
+                                    <p class="text-xs text-green-500 mt-1">Diperbarui {{ $sp3->photo_link_updated_at->format('d M Y, H:i') }}</p>
+                                @endif
+                            </div>
+                            <a href="{{ $sp3->photo_link }}" target="_blank"
+                               class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm flex-shrink-0">
+                                📁 Buka
+                            </a>
+                        </div>
+                    </div>
+                @endif
+
+                @if($sp3->canSetPhotoLink(auth()->user()->user_id))
+                    @if($sp3->form?->lhp_google_file_id)
+                        <div class="bg-amber-50 border-l-4 border-amber-400 p-3 mb-4 text-sm text-amber-700">
+                            LHP sudah digenerate. Perubahan link hanya tampil di website (untuk Admin saat kirim ke customer), dokumen LHP tidak berubah.
+                        </div>
+                    @endif
+                    <form action="{{ route('analis.sp3.photo-link', $sp3) }}" method="POST">
+                        @csrf
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            {{ $sp3->photo_link ? 'Update Link Foto (kosongkan untuk menghapus)' : 'Link Google Drive Foto' }}
+                        </label>
+                        <input type="url" name="photo_link"
+                               value="{{ old('photo_link', $sp3->photo_link) }}"
+                               placeholder="https://drive.google.com/..."
+                               class="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-1"
+                               {{ $sp3->photo_link ? '' : 'required' }}>
+                        @error('photo_link')
+                            <p class="text-red-500 text-xs mb-2">{{ $message }}</p>
+                        @enderror
+                        <button type="submit"
+                                class="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition">
+                            💾 Simpan Link Foto
+                        </button>
+                    </form>
+                @elseif(!$sp3->photo_link)
+                    <p class="text-sm text-gray-400 italic">Belum ada link foto. Hanya analis pemegang SP3 yang dapat mengisi.</p>
+                @endif
+            </div>
         </div>
     </div>
 </x-app-layout>

@@ -196,6 +196,42 @@
         </div>
     </div>
 
+    {{-- Quick-add Parameter modal (outside #formPengujian to avoid nested forms) --}}
+    <div id="parameterModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">Tambah Parameter Baru</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Nama Parameter *</label>
+                    <input type="text" data-field="name" class="w-full border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Instrumen</label>
+                        <input type="text" data-field="instrument" class="w-full border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Kategori</label>
+                        <input type="text" data-field="category" class="w-full border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Metode Default</label>
+                        <input type="text" data-field="default_method" class="w-full border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Satuan Default</label>
+                        <input type="text" data-field="default_unit" class="w-full border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                </div>
+                <p id="parameterModalError" class="hidden text-sm text-red-600"></p>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button type="button" id="parameterModalCancel" class="px-5 py-2.5 rounded-lg font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200">Batal</button>
+                <button type="button" id="parameterModalSave" class="px-5 py-2.5 rounded-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60">Simpan</button>
+            </div>
+        </div>
+    </div>
+
     {{-- Sample Template (hidden) --}}
     <template id="sampleTemplate">
         <div class="sample-item p-6 border border-gray-200 rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group" data-index="__INDEX__">
@@ -243,22 +279,12 @@
                     <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
                     Parameter Uji (Pilih Minimal 1) *
                 </label>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    @foreach($parameters as $parameter)
-                        <label class="relative flex items-center p-3 cursor-pointer rounded-xl border border-gray-200 hover:border-indigo-400 bg-white hover:bg-indigo-50/50 transition-all group overflow-hidden">
-                            <input type="checkbox" name="samples[__INDEX__][parameters][]"
-                                   value="{{ $parameter->id }}"
-                                   class="peer rounded-md border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 absolute opacity-0 z-[-1]">
-                            <div class="w-5 h-5 rounded border border-gray-300 mr-3 flex items-center justify-center flex-shrink-0 peer-checked:bg-indigo-600 peer-checked:border-indigo-600 transition-colors">
-                                <svg class="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
-                                </svg>
-                            </div>
-                            <span class="text-sm font-medium text-gray-700 peer-checked:text-indigo-900">{{ $parameter->name }}</span>
-                            <div class="absolute inset-0 bg-indigo-50/50 opacity-0 peer-checked:opacity-100 peer-checked:border-indigo-500 border rounded-xl pointer-events-none transition-all z-0"></div>
-                        </label>
-                    @endforeach
-                </div>
+                {{-- Filled by JS (paramLabelHtml) so quick-added parameters share the same markup --}}
+                <div class="param-grid grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+                <button type="button" class="add-parameter-btn mt-3 flex items-center gap-1 text-sm font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors">
+                    <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    Parameter Baru
+                </button>
             </div>
         </div>
     </template>
@@ -270,6 +296,38 @@
             const addButton = document.getElementById('addSample');
             const form = document.getElementById('formPengujian');
             let sampleIndex = 0;
+
+            // Parameter list (array keeps the name ordering; an id-keyed object would re-sort by id)
+            @php($parameterList = $parameters->map(fn ($p) => ['id' => $p->id, 'name' => $p->name])->values())
+            const parameterList = @json($parameterList);
+            const parameterNames = {};
+            parameterList.forEach(p => parameterNames[p.id] = p.name);
+
+            function escapeHtml(str) {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            function paramLabelHtml(index, id, name) {
+                return `
+                    <label class="relative flex items-center p-3 cursor-pointer rounded-xl border border-gray-200 hover:border-indigo-400 bg-white hover:bg-indigo-50/50 transition-all group overflow-hidden">
+                        <input type="checkbox" name="samples[${index}][parameters][]"
+                               value="${id}"
+                               class="peer rounded-md border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 absolute opacity-0 z-[-1]">
+                        <div class="w-5 h-5 rounded border border-gray-300 mr-3 flex items-center justify-center flex-shrink-0 peer-checked:bg-indigo-600 peer-checked:border-indigo-600 transition-colors">
+                            <svg class="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <span class="text-sm font-medium text-gray-700 peer-checked:text-indigo-900">${escapeHtml(name)}</span>
+                        <div class="absolute inset-0 bg-indigo-50/50 opacity-0 peer-checked:opacity-100 peer-checked:border-indigo-500 border rounded-xl pointer-events-none transition-all z-0"></div>
+                    </label>`;
+            }
+
+            // Fill the template's parameter grid once; every cloned sample inherits it
+            const templateGrid = template.content.querySelector('.param-grid');
+            templateGrid.innerHTML = parameterList.map(p => paramLabelHtml('__INDEX__', p.id, p.name)).join('');
 
             function addSample() {
                 const clone = template.content.cloneNode(true);
@@ -342,7 +400,6 @@
             // SP3 detail tracking
             const sp3Section = document.getElementById('sp3DetailsSection');
             const sp3List = document.getElementById('sp3DetailsList');
-            const parameterNames = @json($parameters->pluck('name', 'id'));
 
             function padSeq(n) {
                 return String(n).padStart(3, '0');
@@ -396,6 +453,99 @@
             container.addEventListener('change', function(e) {
                 if (e.target.matches('input[type=checkbox][name*="[parameters][]"]')) {
                     updateSp3Details();
+                }
+            });
+
+            // Quick-add Parameter modal
+            const modal = document.getElementById('parameterModal');
+            const modalError = document.getElementById('parameterModalError');
+            const modalSave = document.getElementById('parameterModalSave');
+            const modalFields = modal.querySelectorAll('[data-field]');
+            let targetSample = null;
+
+            function openParameterModal(sampleEl) {
+                targetSample = sampleEl;
+                modalFields.forEach(input => input.value = '');
+                modalError.classList.add('hidden');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                modal.querySelector('[data-field="name"]').focus();
+            }
+
+            function closeParameterModal() {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                targetSample = null;
+            }
+
+            function addParameterOption(id, name) {
+                parameterNames[id] = name;
+                templateGrid.insertAdjacentHTML('beforeend', paramLabelHtml('__INDEX__', id, name));
+                container.querySelectorAll('.sample-item').forEach(sample => {
+                    sample.querySelector('.param-grid')
+                        .insertAdjacentHTML('beforeend', paramLabelHtml(sample.dataset.index, id, name));
+                });
+
+                if (targetSample) {
+                    const cb = targetSample.querySelector(`input[type=checkbox][name*="[parameters][]"][value="${id}"]`);
+                    if (cb) {
+                        cb.checked = true;
+                        cb.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+            }
+
+            container.addEventListener('click', function(e) {
+                const btn = e.target.closest('.add-parameter-btn');
+                if (btn) openParameterModal(btn.closest('.sample-item'));
+            });
+
+            document.getElementById('parameterModalCancel').addEventListener('click', closeParameterModal);
+            modal.addEventListener('click', e => { if (e.target === modal) closeParameterModal(); });
+            modal.addEventListener('keydown', e => {
+                if (e.key === 'Escape') closeParameterModal();
+                if (e.key === 'Enter') { e.preventDefault(); modalSave.click(); }
+            });
+
+            modalSave.addEventListener('click', async function() {
+                const payload = {};
+                modalFields.forEach(input => payload[input.dataset.field] = input.value.trim() || null);
+
+                if (!payload.name) {
+                    modalError.textContent = 'Nama parameter wajib diisi.';
+                    modalError.classList.remove('hidden');
+                    return;
+                }
+
+                modalSave.disabled = true;
+                modalError.classList.add('hidden');
+
+                try {
+                    const res = await fetch(@json(route('parameters.quick-store')), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        },
+                        body: JSON.stringify(payload),
+                    });
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        const firstError = data.errors ? Object.values(data.errors)[0][0] : (data.message || 'Gagal menyimpan parameter.');
+                        modalError.textContent = firstError;
+                        modalError.classList.remove('hidden');
+                        return;
+                    }
+
+                    addParameterOption(data.id, data.name);
+                    closeParameterModal();
+                } catch (err) {
+                    modalError.textContent = 'Terjadi kesalahan jaringan. Coba lagi.';
+                    modalError.classList.remove('hidden');
+                } finally {
+                    modalSave.disabled = false;
                 }
             });
         });

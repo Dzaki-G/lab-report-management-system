@@ -116,6 +116,16 @@
                             <div>
                                 <p class="font-semibold text-gray-800">{{ $sp3->no_sppp ?? $sp3->sp3_number }}</p>
                                 <p class="text-sm text-gray-500">Parameter: {{ $sp3->parameter->name ?? '-' }}</p>
+                                @if($sp3->submitted_at)
+                                    <p class="text-xs text-indigo-600 mt-0.5">
+                                        Dikirim oleh <span class="font-semibold">{{ $sp3->submittedBy?->full_name ?? '-' }}</span>
+                                        · {{ $sp3->submitted_at->format('d M Y, H:i') }}
+                                    </p>
+                                @else
+                                    <p class="text-xs text-gray-400 mt-0.5">
+                                        Belum dikirim{{ $sp3->assignedAnalyst ? ' · dipegang ' . $sp3->assignedAnalyst->full_name : ' · belum diambil analis' }}
+                                    </p>
+                                @endif
                             </div>
                             <span class="text-xs px-2.5 py-1 rounded-full font-medium
                                 {{ $sp3->review_status === 'approved'    ? 'bg-green-100 text-green-700' :
@@ -130,12 +140,16 @@
                             </span>
                         </div>
                         <div class="flex items-center gap-2">
+                            @if($sp3->photo_link)
+                                <a href="{{ $sp3->photo_link }}" target="_blank"
+                                   class="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-lg font-medium transition">📷 Link Foto</a>
+                            @endif
                             @if($sp3->google_doc_id)
                                 <a href="https://docs.google.com/document/d/{{ $sp3->google_doc_id }}/edit"
                                    target="_blank"
                                    class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium transition">📄 Buka SP3</a>
                             @endif
-                            @if(in_array($sp3->review_status, ['pending', 'resubmitted']))
+                            @if($sp3->isWaitingReview())
                                 <form method="POST" action="{{ route('kepala-divisi.sp3.approve', $sp3) }}" class="inline">
                                     @csrf
                                     <button type="button"

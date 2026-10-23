@@ -49,6 +49,7 @@
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deadline</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TTD UPA</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Link Foto</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
                             </tr>
                         </thead>
@@ -68,6 +69,9 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-gray-600 text-xs">
                                         {{ $form->lhp_signed_upa_at ? \Carbon\Carbon::parse($form->lhp_signed_upa_at)->format('d M Y H:i') : '-' }}
+                                    </td>
+                                    <td class="px-6 py-4 align-top">
+                                        @include('admin._photo-links', ['form' => $form])
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center gap-2 flex-wrap">
@@ -120,6 +124,7 @@
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No. Terima / LHP</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Selesai</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Link Foto</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LHP</th>
                             </tr>
                         </thead>
@@ -136,6 +141,9 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-gray-600 text-xs">
                                         {{ \Carbon\Carbon::parse($form->updated_at)->format('d M Y H:i') }}
+                                    </td>
+                                    <td class="px-6 py-4 align-top">
+                                        @include('admin._photo-links', ['form' => $form])
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         @if($form->lhp_google_file_id)

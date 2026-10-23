@@ -118,6 +118,28 @@ class FormPengujian extends Model
     }
 
     /**
+     * SP3s that have a photo link. Not every parameter needs pictures,
+     * so parameters without a link are simply left out.
+     */
+    public function sp3sWithPhotoLink()
+    {
+        $this->loadMissing('sp3Documents.parameter');
+
+        return $this->sp3Documents->filter(fn ($sp3) => filled($sp3->photo_link))->values();
+    }
+
+    /**
+     * One line per parameter that has pictures: "pH: https://drive..." — "-" if none have.
+     * Used for the {{LINK_FOTO}} LHP placeholder and Admin's copy-to-customer text.
+     */
+    public function photoLinksText(): string
+    {
+        return $this->sp3sWithPhotoLink()
+            ->map(fn ($sp3) => ($sp3->parameter->name ?? '-') . ': ' . $sp3->photo_link)
+            ->implode("\n") ?: '-';
+    }
+
+    /**
      * Auto-generate an LHP number in the format {seq}/LHP/NK/{month}/{year}.
      * Counts existing LHP numbers in the same month/year to determine the sequence.
      */

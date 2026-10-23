@@ -5,6 +5,11 @@
     $pct           = $total > 0 ? round($done / $total * 100) : 0;
     $isRejected    = $sp3->review_status === 'rejected';
     $isResubmitted = $sp3->review_status === 'resubmitted';
+    $meId          = auth()->user()->user_id;
+    $isMine        = $sp3->isOwnedBy($meId);
+    $isTaken       = !is_null($sp3->assigned_analyst_id);
+    $canEdit       = $isMine && $sp3->isEditable();
+    $isWaiting     = $sp3->isWaitingReview();
 @endphp
 <div class="bg-white rounded-2xl border shadow-sm overflow-hidden
     {{ $isRejected ? 'border-red-300' : ($isResubmitted ? 'border-amber-300' : 'border-gray-100') }}">
@@ -22,6 +27,13 @@
                     <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">⚠ DITOLAK</span>
                 @elseif($isResubmitted)
                     <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">↩ Dikirim Ulang</span>
+                @endif
+                @if($isMine)
+                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">Tugas Saya</span>
+                @elseif($isTaken)
+                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">Diambil oleh {{ $sp3->assignedAnalyst?->full_name ?? 'analis lain' }}</span>
+                @else
+                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-sky-100 text-sky-700">Belum diambil</span>
                 @endif
             </div>
             <p class="text-sm text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
@@ -86,22 +98,68 @@
                             <p class="text-xs text-gray-400">{{ $sp->filledByAnalyst?->full_name ?? '' }}</p>
                         </div>
                         <span class="px-2 py-1 rounded-md text-xs font-semibold bg-emerald-100 text-emerald-700">Selesai</span>
-                        <a href="{{ route('analis.input', $sp) }}"
-                           class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors">
-                            Edit
-                        </a>
+                        @if($canEdit)
+                            <a href="{{ route('analis.input', $sp) }}"
+                               class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors">
+                                Edit
+                            </a>
+                        @endif
                     @else
                         <span class="px-2 py-1 rounded-md text-xs font-semibold bg-amber-100 text-amber-700">Pending</span>
-                        <a href="{{ route('analis.input', $sp) }}"
-                           class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors">
-                            Input
-                        </a>
+                        @if($canEdit)
+                            <a href="{{ route('analis.input', $sp) }}"
+                               class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors">
+                                Input
+                            </a>
+                        @endif
                     @endif
                 </div>
             </div>
         @empty
             <p class="px-5 py-3 text-sm text-gray-400 italic">Tidak ada sampel.</p>
         @endforelse
+    </div>
+
+    {{-- Ownership actions: Ambil / Lepas / Kirim --}}
+    <div class="px-5 py-3 border-t border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+        @if(!$isTaken)
+            <span class="text-xs text-gray-500">Ambil SP3 ini untuk mulai menginput hasil.</span>
+            <form method="POST" action="{{ route('analis.sp3.take', $sp3) }}">
+                @csrf
+                <button type="submit" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors">
+                    Ambil Tugas
+                </button>
+            </form>
+        @elseif(!$isMine)
+            <span class="text-xs text-gray-500">Hanya {{ $sp3->assignedAnalyst?->full_name ?? 'pemegang SP3' }} yang dapat menginput hasil SP3 ini.</span>
+        @elseif($isWaiting)
+            <span class="text-xs font-semibold text-indigo-700">
+                ⏳ Menunggu review Kepala Divisi · dikirim {{ $sp3->submitted_at?->format('d M Y, H:i') }}
+            </span>
+        @elseif($canEdit)
+            <span class="text-xs text-gray-500">
+                {{ $done === $total ? 'Semua sampel sudah diisi.' : 'Isi semua sampel sebelum mengirim.' }}
+            </span>
+            <div class="flex items-center gap-2">
+                @if($done === 0 && is_null($sp3->submitted_at))
+                    <form method="POST" action="{{ route('analis.sp3.release', $sp3) }}"
+                          onsubmit="return confirm('Lepas SP3 {{ $sp3->sp3_number }}? SP3 akan kembali ke Semua Tugas.')">
+                        @csrf
+                        <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors">
+                            Lepas
+                        </button>
+                    </form>
+                @endif
+                <form method="POST" action="{{ route('analis.sp3.submit', $sp3) }}"
+                      onsubmit="return confirm('Kirim SP3 {{ $sp3->sp3_number }} ke Kepala Divisi? Hasil tidak bisa diubah sampai direview.')">
+                    @csrf
+                    <button type="submit" @disabled($done !== $total)
+                            class="px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        {{ $isRejected ? 'Kirim Ulang ke Kepala Divisi' : 'Kirim ke Kepala Divisi' }}
+                    </button>
+                </form>
+            </div>
+        @endif
     </div>
 
     {{-- SP3 doc status --}}
@@ -135,10 +193,17 @@
             @else
                 <span class="text-gray-400 text-xs">LCP belum diinput</span>
             @endif
+            <span class="text-gray-300">|</span>
+            @if($sp3->photo_link)
+                <span class="text-emerald-600 font-medium">✓ Link foto</span>
+                <a href="{{ $sp3->photo_link }}" target="_blank" class="text-blue-600 hover:underline text-xs">Lihat</a>
+            @else
+                <span class="text-gray-400 text-xs">Tanpa link foto</span>
+            @endif
         </div>
         <a href="{{ route('analis.sp3.show', $sp3) }}"
            class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-100 hover:bg-purple-200 text-purple-700 transition-colors">
-            {{ $sp3->lcp_google_file_url ? 'Update LCP' : 'Input LCP' }}
+            LCP &amp; Foto
         </a>
     </div>
 </div>

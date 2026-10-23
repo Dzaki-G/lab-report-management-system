@@ -4,7 +4,15 @@
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 Detail Form Pengujian: {{ $form->no_terima_sampel ?? $form->lhp_number ?? '-' }}
             </h2>
-            <a href="{{ route('form.index') }}" class="text-blue-600 hover:underline">← Kembali ke Daftar</a>
+            <div class="flex items-center gap-4">
+                @if(auth()->user()->role_id === \App\Enums\Role::ADMIN && $form->status !== 'selesai')
+                    <a href="{{ route('form.edit', $form) }}"
+                       class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors">
+                        Edit Form
+                    </a>
+                @endif
+                <a href="{{ route('form.index') }}" class="text-blue-600 hover:underline">← Kembali ke Daftar</a>
+            </div>
         </div>
     </x-slot>
 
@@ -285,6 +293,14 @@
                                                 {{ $sp3->sp3_number }}
                                             </h4>
                                             <p class="text-sm font-medium text-gray-500 pl-4 mt-0.5">Parameter: {{ $sp3->parameter->name ?? '-' }}</p>
+                                            <p class="text-sm pl-4 mt-0.5">
+                                                <span class="text-gray-500">📷 Link Foto:</span>
+                                                @if($sp3->photo_link)
+                                                    <a href="{{ $sp3->photo_link }}" target="_blank" class="text-blue-600 hover:underline break-all">{{ Str::limit($sp3->photo_link, 50) }}</a>
+                                                @else
+                                                    <span class="text-gray-400 italic">tidak ada</span>
+                                                @endif
+                                            </p>
                                         </div>
                                         {{-- SP3 doc link / status --}}
                                         @if($sp3Done)

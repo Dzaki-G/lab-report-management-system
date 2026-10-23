@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\FormPengujian;
 use App\Models\FormVerification;
 use App\Models\Sp3Document;
-use App\Models\SampleParameter;
 use App\Services\NotificationService;
 use App\Jobs\GenerateLhpJob;
 use Illuminate\Http\Request;
@@ -53,6 +52,8 @@ class KepalaDivisiController extends Controller
             'sp3Documents.parameter',
             'sp3Documents.samples',
             'sp3Documents.rejectedByUser',
+            'sp3Documents.submittedBy',
+            'sp3Documents.assignedAnalyst',
         ]);
 
         return view('kepala-divisi.review-lhp', compact('form'));
@@ -65,8 +66,8 @@ class KepalaDivisiController extends Controller
      */
     public function approveSp3(Sp3Document $sp3)
     {
-        if (!in_array($sp3->review_status, [Sp3Document::STATUS_PENDING, Sp3Document::STATUS_RESUBMITTED])) {
-            return back()->with('error', 'SP3 ini tidak dalam status yang bisa disetujui.');
+        if (!$sp3->isWaitingReview()) {
+            return back()->with('error', 'SP3 ini belum dikirim analis atau tidak dalam status yang bisa disetujui.');
         }
 
         if (!$sp3->allResultsFilled()) {
@@ -90,16 +91,19 @@ class KepalaDivisiController extends Controller
     }
 
     /**
-     * Reject a single SP3 with a note. Only the analyst(s) who actually
-     * entered results for this specific SP3 are notified — not everyone
-     * on the form. The row stays visible in Divisi's queue (rejected ->
-     * resubmitted once the analyst edits a result -> back to Divisi).
+     * Reject a single SP3 with a note. The analyst who holds the SP3 is
+     * notified; the SP3 shows up again in their Tugas Saya as DITOLAK and
+     * they send it back with "Kirim Ulang" once fixed.
      */
     public function rejectSp3(Request $request, Sp3Document $sp3)
     {
         $request->validate([
             'note' => 'required|string|max:1000',
         ]);
+
+        if (!$sp3->isWaitingReview()) {
+            return back()->with('error', 'SP3 ini belum dikirim analis atau tidak dalam status yang bisa ditolak.');
+        }
 
         $sp3->markRejected($request->note, auth()->user()->user_id);
 
@@ -112,20 +116,15 @@ class KepalaDivisiController extends Controller
             'note' => "SP3 {$sp3->sp3_number}: {$request->note}",
         ]);
 
-        // Notify only the analyst(s) who filled results for THIS SP3's parameter
-        $analystIds = SampleParameter::whereIn('sample_id', $sp3->samples()->pluck('samples.id'))
-            ->where('parameter_id', $sp3->parameter_id)
-            ->whereNotNull('filled_by_analyst_id')
-            ->pluck('filled_by_analyst_id')
-            ->unique();
+        // Notify the SP3 holder (fallback: whoever sent it)
+        $analystId = $sp3->assigned_analyst_id ?? $sp3->submitted_by;
 
-        $notificationService = new NotificationService();
-        foreach ($analystIds as $analystId) {
-            $notificationService->create(
+        if ($analystId) {
+            (new NotificationService())->create(
                 $analystId,
                 'form_rejected',
                 "SP3 {$sp3->sp3_number} ditolak",
-                $request->note,
+                "Parameter {$sp3->parameter?->name}: {$request->note}",
                 ['form_id' => $sp3->form_pengujian_id, 'sp3_id' => $sp3->id]
             );
         }

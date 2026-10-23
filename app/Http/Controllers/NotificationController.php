@@ -65,6 +65,10 @@ class NotificationController extends Controller
             if ($form) {
                 $role = auth()->user()->role_id;
                 if ($role == \App\Enums\Role::ANALIS) {
+                    // SP3-level notices (e.g. rejection) open Tugas Saya, where the SP3 can be fixed
+                    if (isset($notification->data['sp3_id'])) {
+                        return redirect()->route('analis.dashboard', ['tab' => 'saya']);
+                    }
                     return redirect()->route('analis.form.show', $formId);
                 } elseif ($role == \App\Enums\Role::KEPALA_DIVISI) {
                     return redirect()->route('kepala-divisi.show', $form);
